@@ -247,6 +247,6 @@ Job=.NET 8.0  Runtime=.NET 8.0
 | **Single-Threaded** | **Yearly on Dec 25**     |   **7.735 μs** |  **0.1538 μs** |  **0.2611 μs** |   **7.710 μs** |  **1.00** |    **0.05** |   **1.5259** |  **0.0153** |   **12.54 KB** |        **1.00** |
 | Multi-Threaded  | Yearly on Dec 25     | 120.923 μs |  2.1355 μs |  1.7832 μs | 121.517 μs | 15.65 |    0.56 |  28.3203 |  1.4648 |  232.71 KB |       18.56 |
 
-![iCal Benchmark Bar Plot](/assets/ical-v5-barplot)
+![iCal Benchmark Bar Plot](/assets/ical-v5-barplot.png)
 
-![iCal Benchmark Box Plot](/assets/ical-v5-boxplot)
+![iCal Benchmark Box Plot](/assets/ical-v5-boxplot.png)
