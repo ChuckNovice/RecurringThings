@@ -1,123 +1,42 @@
-﻿# Recurring System Architecture and Virtualization Documentation
+﻿# Recurring System Architecture and Virtualization
+
+This document explains the design and internal logic of the **RecurringThings** sample project, which demonstrates how to implement a recurrence system with support for time zones, daylight saving time, overrides, and exceptions. The system is intentionally scoped to focus on materializing occurrences for querying. Features like UI interaction, editing recurrences, or long-term audit are explicitly out of scope.
 
 ## Overview
 
-This document outlines the architecture and internal mechanics of the recurring system implemented in the **RecurringThings** project. The goal is to support advanced recurrence logic akin to calendar systems (e.g., Google Calendar or Outlook), with precision handling of time zones, daylight saving transitions, exceptions, and overrides. The core principle is to treat recurring entries as virtualized occurrences that do not exist physically in the database but can be materialized at query time with full fidelity.
+The recurring system provides a unified view of time-based entries, whether they are standalone or generated from a recurrence pattern. Recurrences are not stored as a list of future instances. Instead, they are virtualized on demand, merged with any non-recurring occurrences and filtered for the requested date range.
 
-## 1. Concepts and Definitions
+This approach mirrors strategies used in modern calendar systems like Google Calendar and Microsoft Outlook. The key differentiator is the on-demand generation of instances through a **virtualization service**, while managing edge cases like daylight saving time and partial overrides.
 
-### Recurrence
+## Recurrence Model and Data Structure
 
-A **Recurrence** represents a rule for repeating a logical event over time (e.g., every Monday at 9 AM). It includes a `StartTime`, `EndTime`, a recurrence pattern (`RRule`), and a hard upper bound `RecurrenceEndTime`.
+A recurrence represents a logical instruction to repeat an action or event at defined intervals. Rather than duplicating this across all future occurrences, we store a rule (`RRule`) and boundaries. For example: “Every weekday at 9AM until May 5th.”
 
-### Occurrence
+All recurrence-based calculations are anchored in UTC and annotated with a time zone using IANA identifiers (e.g., `America/New_York`), allowing for proper reconstruction of local times during generation.
 
-An **Occurrence** is a standalone, material event with no recurrence logic attached. These are stored directly in the database.
+### Entity Definitions
 
-### Virtualized Occurrence
-
-A **VirtualizedOccurrence** is a runtime-projected instance derived from a `Recurrence`, representing what a recurrence would have generated during a specific time window. These are created on demand and are not persisted in storage.
-
-### Occurrence Exception
-
-An **Exception** cancels a specific instance of a recurrence. It is indexed by the **original** local datetime that would have been produced by the recurrence.
-
-### Occurrence Override
-
-An **Override** both cancels a specific recurrence instance and replaces it with a new `StartTime`, `EndTime`, and optionally, other descriptive fields.
-
-## 2. Data Storage Model
-
-The recurring system stores all temporal data in **UTC**. This guarantees consistency, supports range querying, and avoids common pitfalls with daylight saving time.
-
-Time zone information is stored as an IANA TimeZone string (e.g., `"America/New_York"`), and is always applied using libraries like NodaTime or Ical.Net when performing calculations.
-
-### Expected Tables and Fields
-
-```mermaid
-erDiagram
-    Recurrence ||--o{ OccurrenceException : has
-    Recurrence ||--o{ OccurrenceOverride : has
-    Recurrence ||--o{ VirtualizedOccurrence : generates
-    Occurrence ||--|| VirtualizedOccurrence : union
-
-    Recurrence {
-        Guid Id PK
-        DateTime StartTime (UTC)
-        DateTime EndTime (UTC)
-        DateTime RecurrenceEndTime (UTC)
-        string RRule
-        string TimeZone
-        string Description
-    }
-
-    Occurrence {
-        Guid Id PK
-        DateTime StartTime (UTC)
-        DateTime EndTime (UTC)
-        string Description
-    }
-
-    OccurrenceException {
-        Guid Id PK
-        Guid RecurrenceId FK
-        DateTime OriginalTime (UTC)
-    }
-
-    OccurrenceOverride {
-        Guid Id PK
-        Guid RecurrenceId FK
-        DateTime OriginalTime (UTC)
-        DateTime StartTime (UTC)
-        DateTime EndTime (UTC)
-        string Description
-    }
+-   **Recurrence**: Holds the pattern (RRule), time window, and time zone.
     
- ```
-
-## 3. Virtualization Pipeline
-
-When a client requests occurrences for a given time window, the system follows this precise logic:
-
-1.  Fetch all `Recurrence` objects that **might overlap** with the requested range. This is done by filtering using `StartTime` and `RecurrenceEndTime` against the provided [start, end) window.
+-   **Occurrence**: Represents a singular non-repeating event.
     
-2.  Fetch all regular `Occurrence` entities in the same range.
+-   **OccurrenceException**: Cancels a virtualized recurrence instance at a specific point in time.
     
-3.  For each recurrence:
+-   **OccurrenceOverride**: Replaces a virtualized instance with a customized one.
     
-    -   Use **Ical.Net** to materialize theoretical instances based on `StartTime`, `RRule`, and `TimeZone`.
-        
-    -   Apply **Exception** filtering by matching original local times.
-        
-    -   Apply **Override** filtering by matching original UTC times, removing and replacing with custom values.
-        
-    -   Discard any virtual occurrence outside the provided range.
-        
-4.  Concatenate the standalone `Occurrence` entries with the virtualized ones.
-    
-5.  Return a sorted list of all occurrences in the window.
+-   **VirtualizedOccurrence**: A transient runtime object that normalizes output for both real and virtual entries.
     
 
-## 4. Database Schema
+All `DateTime` fields in persistent storage are in **UTC**. This includes recurrence boundaries, overrides, and exception targets.
 
-The recurring system relies on three primary persisted entities: `Recurrence`, `Occurrence`, and their related support structures: `OccurrenceException` and `OccurrenceOverride`. All persisted **date and time values are stored in UTC**, and all recurrence calculations are based on UTC and timezone identifiers to ensure consistency across daylight saving transitions and global time zones.
+### Schema Diagram
 
-### Schema Description
-
--   **Recurrence**: Defines a recurring pattern, its start and end time, and the associated RRULE.
-    
--   **Occurrence**: Represents standalone, non-recurring events.
-    
--   **OccurrenceException**: Identifies recurrence instances that must be canceled.
-    
--   **OccurrenceOverride**: Defines recurrence instances that must be replaced with new time or description.
-    
 ```mermaid
 erDiagram
     Recurrence {
         Guid Id
         DateTime StartTime 
-        DateTime EndTime
+        TimeSpan Duration
         DateTime RecurrenceEndTime
         string RRule
         string TimeZone
@@ -127,7 +46,7 @@ erDiagram
     Occurrence {
         Guid Id
         DateTime StartTime
-        DateTime EndTime
+        TimeSpan Duration
         string Description
     }
 
@@ -142,50 +61,66 @@ erDiagram
         Guid RecurrenceId
         DateTime OriginalTime
         DateTime StartTime
-        DateTime EndTime
+        TimeSpan Duration
         string Description
     }
 
     Recurrence ||--o{ OccurrenceException : has
     Recurrence ||--o{ OccurrenceOverride : has
+
 ```
 
-### Runtime Virtualized Object
+## Virtualization Lifecycle and Execution
 
-While `VirtualizedOccurrence` is **not persisted**, it is the **unified projection** returned by the `VirtualizationService`. This type merges all recurrence-derived occurrences (virtualized via RRULEs) and standalone `Occurrence` rows into a single flat list to facilitate client consumption, calendar rendering, or downstream processing.
+The virtualization service provides a single method: `GetOccurrencesAsync(DateTime startUtc, DateTime endUtc)`. This method accepts a time window in UTC and returns all occurrences — both standalone and virtualized — that fall within the range.
 
-## 5. Handling Time Zones and Daylight Saving
+### Execution Flow
 
-All recurrence projection is performed in the **local time zone** as defined in each `Recurrence`. This ensures daylight saving transitions are honored correctly.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant VirtualizationService
+    participant RecurrenceRepository
+    participant OccurrenceRepository
+    participant IcalEngine
 
-To achieve this:
+    Client->>VirtualizationService: GetOccurrencesAsync(start, end)
+    VirtualizationService->>RecurrenceRepository: GetInRangeAsync(start, end)
+    VirtualizationService->>OccurrenceRepository: GetInRangeAsync(start, end)
+    RecurrenceRepository-->>VirtualizationService: [Recurrences]
+    OccurrenceRepository-->>VirtualizationService: [Occurrences]
 
--   `StartTime` and `EndTime` are converted from UTC into a `ZonedDateTime` using **NodaTime**.
+    loop each recurrence
+        VirtualizationService->>IcalEngine: Generate instances via RRULE
+        IcalEngine-->>VirtualizationService: [Periods]
+        VirtualizationService->>VirtualizationService: Apply exceptions and overrides
+    end
+
+    VirtualizationService-->>Client: [VirtualizedOccurrences + Occurrences]
+
+```
+
+### Internal Process
+
+1.  **Recurrence Filtering**  
+    The repository returns only recurrences whose series intersect with the query range based on their `StartTime` and `RecurrenceEndTime`. This ensures no unrelated data is processed.
     
--   The local values are used to construct `CalDateTime` objects fed into Ical.Net.
+2.  **Time Zone Reconstruction**  
+    Each recurrence's UTC values are converted to local time using the configured IANA time zone. This is required for Ical.Net to process RRULEs correctly.
     
--   Ical.Net is instructed to generate instances within that local time frame.
+3.  **Materialization**  
+    The RRULE is applied to the recurrence using Ical.Net, producing theoretical occurrences in local time. These are then converted back to UTC.
     
--   After materialization, all virtual occurrences are converted back to UTC.
+4.  **Exceptions**  
+    Any instance that matches an `OriginalTime` in the `OccurrenceException` list is discarded. This cancels the virtual occurrence entirely.
     
-
-This strategy allows clean interaction with iCal libraries while maintaining full control over UTC precision for querying.
-
-
-## 6. Exceptions and Overrides Application Logic
-
-Each recurrence materialization pass must account for **cancellation** and **replacement** scenarios. These are handled by two distinct components: exceptions and overrides.
-
--   **Exception**: Cancels a specific recurrence instance entirely. If an occurrence from the recurrence rule has a matching `OriginalTime` in the `Exceptions` list, **it must be removed**, and no override should be considered for it.
+5.  **Overrides**  
+    If a matching `OriginalTime` is found in `OccurrenceOverride`, the virtual occurrence is replaced with the override’s `StartTime`, `Duration`, and `Description`.
     
--   **Override**: Modifies a specific recurrence instance. If a recurrence occurrence has a matching `OriginalTime` in the `Overrides` list, it is replaced with the customized `StartTime`, `EndTime`, and `Description` defined in the override.
-    
+6.  **Filtering**  
+    Results are clipped by the user’s query range and the recurrence’s `RecurrenceEndTime`.
 
-> ❗ **Important:** If both an override and an exception exist for the same `OriginalTime`, **the exception takes precedence**. The override must be ignored in this case. This ensures intentional cancellations cannot be silently bypassed by a conflicting override.
-
-This rule ensures that users explicitly removing an occurrence (via an exception) are never overridden by unintended logic.
-
-### Priority Order
+### Exception and Override Mechanics
 
 ```mermaid
 flowchart TD
@@ -194,28 +129,55 @@ flowchart TD
     B -- No --> C{Is there an Override?}
     C -- Yes --> Y[Replace with Override Instance]
     C -- No --> Z[Keep as is]
+
 ```
 
-## 7. Filtering and Clipping
+-   **Exception priority**: If both an exception and override exist for the same `OriginalTime`, the exception takes precedence.
+    
+-   **Overrides** are matched by original UTC `StartTime`, and are only included in results if the **new** `StartTime` falls within the query range.
+    
 
-All materialized occurrences are filtered against:
+> Outlook and Google Calendar refer to overrides as “Modified Occurrences.”
 
--   The user-provided `[start, end)` window.
-    
--   The `RecurrenceEndTime` of each recurrence.
-    
-Although iCal rules may theoretically go on indefinitely (`COUNT=1000`, etc), the final result is **clipped** strictly to ensure no recurrence instance exceeds the defined hard cap in `RecurrenceEndTime`.
+### Output and Merging
 
-## 8. Summary and Best Practices
+The final output is a flat list of `VirtualizedOccurrence` objects that normalize both recurrence-based and standalone entries. This format is ideal for calendars or timelines. If a real `Occurrence` and a virtualized one exist at the same time, both are included. No deduplication is performed.
 
-This system uses modern, production-ready strategies for recurrence generation:
+## Time Zone Handling and Constraints
 
--   All dates are stored in **UTC** to support robust filtering.
+All persistence and filtering is done in **UTC**. The only exception is the **local time transformation** done temporarily inside the virtualization layer. This is needed for RRULE parsing to reflect real-world behavior, including daylight transitions.
+
+> All time zones must use **IANA** format (`America/Chicago`, not `Central Standard Time`). Conversions are handled using NodaTime to ensure cross-platform consistency.
+
+## Limitations and Implementation Scope
+
+This sample is purposefully limited. The following items are out of scope:
+
+-   **Editing or deleting recurrences**
     
--   **Time zones** are respected during projection and never embedded into stored timestamps.
+-   **Retaining history when modifying a series**
     
--   **Overrides** and **exceptions** are applied explicitly in a deterministic order.
+-   **Linking cloned recurrences post-edit**
     
--   **Ical.Net** and **NodaTime** are used to ensure accuracy across DST transitions.
+-   **UI interaction models**
     
--   Final occurrence sets are combined from both **virtualized** and **standalone** sources, allowing for flexibility in scheduling logic.
+-   **Error handling and validation**
+    
+
+The implementer is expected to:
+
+-   Generate `RRule` strings from a validated high-level structure.
+    
+-   Design their own editing workflows.
+    
+-   Store additional fields by extending the `ICalendarEntry` interface and replicating them in `Recurrence`, `OccurrenceOverride`, and `Occurrence`.
+    
+## Extending the System
+
+Fields like `Location`, `Color`, or `IsAllDay` can be supported by adding them to the `ICalendarEntry` interface. These fields:
+
+-   Will be inherited by `Recurrence` and passed into each `VirtualizedOccurrence`
+    
+-   Can be overridden in `OccurrenceOverride` entries
+    
+-   Will appear uniformly in merged output
