@@ -51,7 +51,7 @@ public class VirtualizationService(
     /// <param name="rangeStartUtc"></param>
     /// <param name="rangeEndUtc"></param>
     /// <returns></returns>
-    private static IReadOnlyList<VirtualizedOccurrence> Virtualize(
+    private static IEnumerable<VirtualizedOccurrence> Virtualize(
         Recurrence recurrence,
         DateTime rangeStartUtc,
         DateTime rangeEndUtc)
@@ -102,7 +102,6 @@ public class VirtualizationService(
             .Where(x =>
                 x.StartTime >= rangeStartUtc &&
                 x.StartTime < rangeEndUtc &&
-                x.StartTime <= recurrence.RecurrenceEndTime)
-            .ToList();
+                x.StartTime <= recurrence.RecurrenceEndTime);
     }
 }
