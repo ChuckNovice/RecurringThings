@@ -18,18 +18,18 @@ public class VirtualizationService(
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<VirtualizedOccurrence>> GetOccurrencesAsync(
-        DateTime startTime,
-        DateTime endTime,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
         CancellationToken cancellationToken = default)
     {
-        if (startTime.Kind != DateTimeKind.Utc)
-            throw new ArgumentException("Kind must be UTC.", nameof(startTime));
+        if (rangeStartUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("Kind must be UTC.", nameof(rangeStartUtc));
 
-        if (endTime.Kind != DateTimeKind.Utc)
-            throw new ArgumentException("Kind must be UTC.", nameof(endTime));
+        if (rangeEndUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("Kind must be UTC.", nameof(rangeEndUtc));
 
-        var recurrencesTask = _recurrenceRepository.GetInRangeAsync(startTime, endTime, cancellationToken);
-        var occurrencesTask = _occurrenceRepository.GetInRangeAsync(startTime, endTime, cancellationToken);
+        var recurrencesTask = _recurrenceRepository.GetInRangeAsync(rangeStartUtc, rangeEndUtc, cancellationToken);
+        var occurrencesTask = _occurrenceRepository.GetInRangeAsync(rangeStartUtc, rangeEndUtc, cancellationToken);
 
         var recurrences = await recurrencesTask;
         var occurrences = await occurrencesTask;
@@ -37,7 +37,7 @@ public class VirtualizationService(
         var results = new List<VirtualizedOccurrence>(recurrences.Count * 4 + occurrences.Count);
 
         foreach (var recurrence in recurrences)
-            results.AddRange(Virtualize(recurrence, startTime, endTime));
+            results.AddRange(Virtualize(recurrence, rangeStartUtc, rangeEndUtc));
 
         results.AddRange(occurrences.Select(o => o.AsVirtualized()));
 
@@ -58,11 +58,11 @@ public class VirtualizationService(
     {
         var zone = DateTimeZoneProviders.Tzdb[recurrence.TimeZone];
 
-        var recurrenceLocal = Instant.FromDateTimeUtc(recurrence.StartTime).InZone(zone).LocalDateTime;
+        var recurrenceStartLocal = Instant.FromDateTimeUtc(recurrence.StartTime).InZone(zone).LocalDateTime;
         var rangeStartLocal = Instant.FromDateTimeUtc(rangeStartUtc).InZone(zone).LocalDateTime;
         var rangeEndLocal = Instant.FromDateTimeUtc(rangeEndUtc).InZone(zone).LocalDateTime;
 
-        var recurrenceStart = new CalDateTime(recurrenceLocal.ToDateTimeUnspecified(), recurrence.TimeZone);
+        var recurrenceStart = new CalDateTime(recurrenceStartLocal.ToDateTimeUnspecified(), recurrence.TimeZone);
         var windowStart = new CalDateTime(rangeStartLocal.ToDateTimeUnspecified(), recurrence.TimeZone);
         var windowEnd = new CalDateTime(rangeEndLocal.ToDateTimeUnspecified(), recurrence.TimeZone);
 
