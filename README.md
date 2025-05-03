@@ -147,7 +147,7 @@ The final output is a flat list of `VirtualizedOccurrence` objects that normaliz
 
 All persistence and filtering is done in **UTC**. The only exception is the **local time transformation** done temporarily inside the virtualization layer. This is needed for RRULE parsing to reflect real-world behavior, including daylight transitions.
 
-> All time zones must use **IANA** format (`America/Chicago`, not `Central Standard Time`). Conversions are handled using NodaTime to ensure cross-platform consistency.
+> ⚠️ All time zones must use **IANA** format (`America/Chicago`, not `Central Standard Time`). Conversions are handled using NodaTime to ensure cross-platform consistency.
 
 ## Limitations and Implementation Scope
 
