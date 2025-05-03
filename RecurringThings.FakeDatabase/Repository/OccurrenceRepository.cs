@@ -14,8 +14,10 @@ public class OccurrenceRepository :
     /// <inheritdoc />
     public Task InsertAsync(Occurrence occurrence, CancellationToken cancellationToken = default)
     {
-        if (occurrence == null) throw new ArgumentNullException(nameof(occurrence));
+        ArgumentNullException.ThrowIfNull(occurrence);
 
+        // In a real database, either validate that the passed object uses UTC for the start time,
+        // or at least ensure conversion to UTC when possible.
         if (occurrence.StartTime.Kind != DateTimeKind.Utc)
             throw new ArgumentException($"Kind of the '{nameof(occurrence.StartTime)}' date must be UTC.", nameof(occurrence));
 
