@@ -215,11 +215,16 @@ Job=.NET 8.0  Runtime=.NET 8.0
 | **Single-Threaded** | **Yearly on Dec 25**     |     **24.75 μs** |   **0.481 μs** |   **1.066 μs** |  **1.00** |    **0.06** |    **7.9956** |   **0.2441** |        **-** |    **65.46 KB** |        **1.00** |
 | Multi-Threaded  | Yearly on Dec 25     |    144.12 μs |   2.828 μs |   3.677 μs |  5.83 |    0.28 |   34.1797 |   1.9531 |        - |   278.83 KB |        4.26 |
 
-![iCal Benchmark Bar Plot](/assets/ical-v4-barplot.png)
-
-![iCal Benchmark Box Plot](/assets/ical-v4-boxplot.png)
+<table>
+  <tr>
+    <td><img src="/assets/ical-v4-barplot.png" width="400"/></td>
+    <td><img src="/assets/ical-v4-boxplot.png" width="400"/></td>
+  </tr>
+</table>
 
 ### Ical.Net 5.0.0-pre.42
+
+iCal v5 offers significant performance improvement over the previous version.
 
 ```
 BenchmarkDotNet v0.14.0, Windows 11 (10.0.22631.5189/23H2/2023Update/SunValley3)
