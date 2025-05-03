@@ -5,7 +5,6 @@ using Core.Domain;
 using Core.Repository;
 using FakeDatabase;
 using Microsoft.Extensions.DependencyInjection;
-using NodaTime;
 
 /// <summary>
 ///     Unit tests of the <see cref="VirtualizationService"/> class.
