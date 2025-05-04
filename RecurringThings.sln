@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings.Core", "RecurringThings.Core\RecurringThings.Core.csproj", "{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings", "RecurringThings\RecurringThings.csproj", "{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings.Tests", "RecurringThings.Tests\RecurringThings.Tests.csproj", "{B623CFC0-876D-4197-A220-10BB7B57AA02}"
 EndProject

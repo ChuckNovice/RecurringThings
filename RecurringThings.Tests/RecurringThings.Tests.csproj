@@ -22,7 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\RecurringThings.Core\RecurringThings.Core.csproj" />
+	  <ProjectReference Include="..\RecurringThings\RecurringThings.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

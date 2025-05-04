@@ -1,4 +1,4 @@
-﻿namespace RecurringThings.Core.Domain;
+﻿namespace RecurringThings.Domain;
 
 using System;
 

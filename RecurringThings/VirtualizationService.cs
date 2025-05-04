@@ -1,4 +1,4 @@
-﻿namespace RecurringThings.Core;
+﻿namespace RecurringThings;
 
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;

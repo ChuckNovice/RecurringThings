@@ -1,4 +1,4 @@
-﻿namespace RecurringThings.Core.Domain;
+﻿namespace RecurringThings.Domain;
 
 /// <summary>
 ///     Represents the attributes shared by all calendar entries.

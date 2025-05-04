@@ -1,9 +1,8 @@
 ﻿namespace RecurringThings.Tests;
 
-using Core;
-using Core.Domain;
-using Core.Repository;
+using Domain;
 using Moq;
+using Repository;
 
 /// <summary>
 ///     Unit tests of the <see cref="VirtualizationService"/> class.
