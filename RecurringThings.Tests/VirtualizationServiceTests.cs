@@ -3,8 +3,7 @@
 using Core;
 using Core.Domain;
 using Core.Repository;
-using FakeDatabase;
-using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 /// <summary>
 ///     Unit tests of the <see cref="VirtualizationService"/> class.
@@ -13,9 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 public class VirtualizationServiceTests
 {
 
-    private IServiceScope _scope;
-    private IOccurrenceRepository _occurrenceRepository;
-    private IRecurrenceRepository _recurrenceRepository;
+    private Mock<IRecurrenceRepository> _recurrenceRepository;
+    private Mock<IOccurrenceRepository> _occurrenceRepository;
     private IVirtualizationService _virtualizationService;
 
     /// <summary>
@@ -24,32 +22,20 @@ public class VirtualizationServiceTests
     [TestInitialize]
     public void Setup()
     {
-        var services = new ServiceCollection();
-        services
-            .AddScoped<IVirtualizationService, VirtualizationService>()
-            .AddRepositories();
+        _recurrenceRepository = new Mock<IRecurrenceRepository>();
+        _occurrenceRepository = new Mock<IOccurrenceRepository>();
 
-        _scope = services.BuildServiceProvider().CreateScope();
-        _occurrenceRepository = _scope.ServiceProvider.GetRequiredService<IOccurrenceRepository>();
-        _recurrenceRepository = _scope.ServiceProvider.GetRequiredService<IRecurrenceRepository>();
-        _virtualizationService = _scope.ServiceProvider.GetRequiredService<IVirtualizationService>();
-    }
-
-    /// <summary>
-    ///     Clean up the resources used by the tests.
-    /// </summary>
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _scope.Dispose();
+        _virtualizationService = new VirtualizationService(
+            _recurrenceRepository.Object,
+            _occurrenceRepository.Object);
     }
 
     [TestMethod]
     public async Task GetOccurrencesAsync_WhenRecurrenceIsInRange_ShouldMaterializeOccurrences()
     {
         // Arrange
-        var startTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endTime = new DateTime(2025, 5, 5, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = new DateTime(2025, 5, 5, 0, 0, 0, DateTimeKind.Utc);
 
         var recurrenceStart = new DateTime(2025, 5, 1, 9, 0, 0, DateTimeKind.Utc);
         var recurrenceEndTime = new DateTime(2025, 5, 4, 9, 0, 0, DateTimeKind.Utc); // UNTIL is inclusive at 09:00 UTC
@@ -65,16 +51,18 @@ public class VirtualizationServiceTests
             Description = "Test recurrence"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startTime, endTime);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results
+        var occurrences = await results
             .Where(x => x.Recurrence?.Id == recurrence.Id)
             .OrderBy(x => x.StartTime)
-            .ToList();
+            .ToListAsync();
 
         Assert.AreEqual(4, occurrences.Count, "Expected 4 materialized occurrences.");
 
@@ -93,6 +81,9 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenRecurrenceIsOutOfRange_ShouldReturnEmpty()
     {
         // Arrange
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = new DateTime(2025, 5, 5, 0, 0, 0, DateTimeKind.Utc);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
@@ -104,16 +95,15 @@ public class VirtualizationServiceTests
             Description = "Out of range recurrence"
         };
 
-        var startTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endTime = new DateTime(2025, 5, 5, 0, 0, 0, DateTimeKind.Utc);
-
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startTime, endTime);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(0, occurrences.Count, "No occurrences should be returned for an out-of-range recurrence.");
     }
 
@@ -136,13 +126,15 @@ public class VirtualizationServiceTests
             Description = "Starts at range start"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         Assert.IsTrue(occurrences.Any(), "Expected at least one materialized occurrence.");
         Assert.AreEqual(recurrenceStart, occurrences.First().StartTime, "First occurrence should start at range start.");
@@ -166,13 +158,15 @@ public class VirtualizationServiceTests
             Description = "Starts at range end"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(0, occurrences.Count, "No materialized occurrence should be returned for a recurrence starting at range end.");
     }
 
@@ -180,13 +174,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenExceptionMatchesOccurrence_ShouldRemoveIt()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(3).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250504T090000Z",
             TimeZone = "UTC",
             Description = "With exception"
@@ -195,18 +191,20 @@ public class VirtualizationServiceTests
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(1).AddHours(9),
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var removedTime = baseTime.AddDays(1).AddHours(9);
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var removedTime = rangeStart.AddDays(1).AddHours(9);
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         Assert.IsFalse(occurrences.Any(o => o.StartTime == removedTime), "Occurrence matching the exception should have been removed.");
     }
@@ -215,13 +213,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenExceptionDoesNotMatch_ShouldNotAffectOthers()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(3).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250504T090000Z",
             TimeZone = "UTC",
             Description = "With non-matching exception"
@@ -230,17 +230,19 @@ public class VirtualizationServiceTests
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(10).AddHours(9), // Outside the range
+            OriginalTime = rangeStart.AddDays(10).AddHours(9), // Outside the range
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(4, occurrences.Count, "All materialized occurrences should be present since exception is outside range.");
     }
 
@@ -248,13 +250,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenMultipleExceptionsExist_ShouldRemoveAllSpecified()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(5);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(4).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(4).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250505T090000Z",
             TimeZone = "UTC",
             Description = "With multiple exceptions"
@@ -263,30 +267,32 @@ public class VirtualizationServiceTests
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(1).AddHours(9),
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),
             Recurrence = recurrence
         });
 
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(2).AddHours(9),
+            OriginalTime = rangeStart.AddDays(2).AddHours(9),
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(5));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
         var removedTimes = new[]
         {
-            baseTime.AddDays(1).AddHours(9),
-            baseTime.AddDays(2).AddHours(9)
+            rangeStart.AddDays(1).AddHours(9),
+            rangeStart.AddDays(2).AddHours(9)
         };
 
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         foreach (var time in removedTimes)
         {
@@ -300,13 +306,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenExceptionAtRangeStart_ShouldRemoveMatchingOccurrence()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(3);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(2).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(2).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250503T090000Z",
             TimeZone = "UTC",
             Description = "Exception at range start"
@@ -315,19 +323,21 @@ public class VirtualizationServiceTests
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddHours(9),
+            OriginalTime = rangeStart.AddHours(9),
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(3));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
-        Assert.IsFalse(occurrences.Any(x => x.StartTime == baseTime.AddHours(9)), "Occurrence at range start should have been removed.");
+        Assert.IsFalse(occurrences.Any(x => x.StartTime == rangeStart.AddHours(9)), "Occurrence at range start should have been removed.");
         Assert.AreEqual(2, occurrences.Count, "Expected two remaining occurrences after exception.");
     }
 
@@ -335,13 +345,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenAllOccurrencesAreExcluded_ShouldReturnNothing()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(2).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(2).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250503T090000Z",
             TimeZone = "UTC",
             Description = "Fully excluded recurrence"
@@ -350,29 +362,31 @@ public class VirtualizationServiceTests
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddHours(9),
+            OriginalTime = rangeStart.AddHours(9),
             Recurrence = recurrence
         });
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(1).AddHours(9),
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),
             Recurrence = recurrence
         });
         recurrence.Exceptions.Add(new OccurrenceException
         {
             Id = Guid.NewGuid(),
-            OriginalTime = baseTime.AddDays(2).AddHours(9),
+            OriginalTime = rangeStart.AddDays(2).AddHours(9),
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(0, occurrences.Count, "All occurrences should be removed by exceptions.");
     }
 
@@ -380,14 +394,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenOverrideMatchesOccurrence_ShouldReplaceIt()
     {
         // Arrange
-        var utcBase = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(3);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9),               // 2025-05-01 09:00 UTC
-            Duration = TimeSpan.FromHours(1),         
-            RecurrenceEndTime = utcBase.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
+            StartTime = rangeStart.AddHours(9),               // 2025-05-01 09:00 UTC
+            Duration = TimeSpan.FromHours(1),
+            RecurrenceEndTime = rangeStart.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
             RRule = "FREQ=DAILY;UNTIL=20250503T090000Z",
             TimeZone = "UTC",
             Description = "With override"
@@ -397,23 +412,25 @@ public class VirtualizationServiceTests
         recurrence.Overrides.Add(new OccurrenceOverride
         {
             Id = Guid.NewGuid(),
-            OriginalTime = utcBase.AddDays(1).AddHours(9),       // Original time
-            StartTime = utcBase.AddDays(1).AddHours(15),         // New time: 2025-05-02 15:00 UTC
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),       // Original time
+            StartTime = rangeStart.AddDays(1).AddHours(15),         // New time: 2025-05-02 15:00 UTC
             Duration = TimeSpan.FromHours(1),
             Description = "Replaced",
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(utcBase, utcBase.AddDays(3));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(3, occurrences.Count, "Expected 3 total occurrences: 2 from RRule, 1 override replaces 1.");
 
-        var replaced = occurrences.SingleOrDefault(x => x.StartTime == utcBase.AddDays(1).AddHours(15));
+        var replaced = occurrences.SingleOrDefault(x => x.StartTime == rangeStart.AddDays(1).AddHours(15));
         Assert.IsNotNull(replaced, "Override occurrence should exist at new time.");
         Assert.AreEqual("Replaced", replaced.Description);
     }
@@ -422,14 +439,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenOverrideProducesTimeOutsideRange_ShouldBeExcluded()
     {
         // Arrange
-        var utcBase = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(3);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9),                    // 2025-05-01 09:00 UTC
+            StartTime = rangeStart.AddHours(9),                    // 2025-05-01 09:00 UTC
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = utcBase.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
+            RecurrenceEndTime = rangeStart.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
             RRule = "FREQ=DAILY;UNTIL=20250503T090000Z",
             TimeZone = "UTC",
             Description = "Override outside range"
@@ -439,26 +457,28 @@ public class VirtualizationServiceTests
         recurrence.Overrides.Add(new OccurrenceOverride
         {
             Id = Guid.NewGuid(),
-            OriginalTime = utcBase.AddDays(1).AddHours(9),       // Original occurrence
-            StartTime = utcBase.AddDays(10).AddHours(9),         // Outside query range
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),       // Original occurrence
+            StartTime = rangeStart.AddDays(10).AddHours(9),         // Outside query range
             Duration = TimeSpan.FromHours(1),
             Description = "Shifted out",
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act — query covers 2025-05-01 to 2025-05-04 exclusively
-        var results = await _virtualizationService.GetOccurrencesAsync(utcBase, utcBase.AddDays(3));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         Assert.IsFalse(occurrences.Any(x => x.Description == "Shifted out"),
             "Override moved outside the range should not be returned.");
 
-        Assert.IsTrue(occurrences.Any(x => x.StartTime == utcBase.AddHours(9)), "First occurrence should be present.");
-        Assert.IsTrue(occurrences.Any(x => x.StartTime == utcBase.AddDays(2).AddHours(9)), "Third occurrence should be present.");
+        Assert.IsTrue(occurrences.Any(x => x.StartTime == rangeStart.AddHours(9)), "First occurrence should be present.");
+        Assert.IsTrue(occurrences.Any(x => x.StartTime == rangeStart.AddDays(2).AddHours(9)), "Third occurrence should be present.");
         Assert.AreEqual(2, occurrences.Count, "Expected two in-range occurrences.");
     }
 
@@ -466,14 +486,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenOverrideProducesTimeInsideRange_ShouldBeIncluded()
     {
         // Arrange
-        var utcBase = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(3);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9),                    // 2025-05-01 09:00 UTC
+            StartTime = rangeStart.AddHours(9),                    // 2025-05-01 09:00 UTC
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = utcBase.AddDays(3).AddHours(9), // 2025-05-04 09:00 UTC
+            RecurrenceEndTime = rangeStart.AddDays(3).AddHours(9), // 2025-05-04 09:00 UTC
             RRule = "FREQ=DAILY;UNTIL=20250504T090000Z",
             TimeZone = "UTC",
             Description = "In-range override"
@@ -482,22 +503,24 @@ public class VirtualizationServiceTests
         recurrence.Overrides.Add(new OccurrenceOverride
         {
             Id = Guid.NewGuid(),
-            OriginalTime = utcBase.AddDays(1).AddHours(9),      // 2025-05-02 09:00 UTC
-            StartTime = utcBase.AddDays(1).AddHours(12),        // 2025-05-02 12:00 UTC
+            OriginalTime = rangeStart.AddDays(1).AddHours(9),      // 2025-05-02 09:00 UTC
+            StartTime = rangeStart.AddDays(1).AddHours(12),        // 2025-05-02 12:00 UTC
             Duration = TimeSpan.FromHours(1),
             Description = "In range override",
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(utcBase, utcBase.AddDays(3));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.IsTrue(
-            occurrences.Any(x => x.StartTime == utcBase.AddDays(1).AddHours(12)),
+            occurrences.Any(x => x.StartTime == rangeStart.AddDays(1).AddHours(12)),
             "Override occurrence should be included within the search range."
         );
     }
@@ -542,11 +565,13 @@ public class VirtualizationServiceTests
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         // Assert
         Assert.IsTrue(
@@ -564,15 +589,17 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenOverrideAndExceptionShareOriginalTime_ShouldUseException()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var originalTime = baseTime.AddDays(1).AddHours(9);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
+
+        var originalTime = rangeStart.AddDays(1).AddHours(9);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3).AddHours(9),
+            RecurrenceEndTime = rangeStart.AddDays(3).AddHours(9),
             RRule = "FREQ=DAILY;UNTIL=20250504T090000Z",
             TimeZone = "UTC",
             Description = "Override vs Exception"
@@ -596,13 +623,15 @@ public class VirtualizationServiceTests
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         Assert.IsFalse(occurrences.Any(x => x.StartTime == originalTime), "Original occurrence should not appear.");
         Assert.IsFalse(occurrences.Any(x => x.Description == "Override wins (should be ignored)"), "Override should be ignored when exception exists.");
@@ -612,14 +641,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenOverrideOriginalTimeNotInSeries_ShouldBeIgnored()
     {
         // Arrange
-        var utcBase = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9),                    // 2025-05-01 09:00 UTC
+            StartTime = rangeStart.AddHours(9),                    // 2025-05-01 09:00 UTC
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = utcBase.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
+            RecurrenceEndTime = rangeStart.AddDays(2).AddHours(9), // 2025-05-03 09:00 UTC
             RRule = "FREQ=DAILY;UNTIL=20250503T090000Z",
             TimeZone = "UTC",
             Description = "Override invalid target"
@@ -628,20 +658,22 @@ public class VirtualizationServiceTests
         recurrence.Overrides.Add(new OccurrenceOverride
         {
             Id = Guid.NewGuid(),
-            OriginalTime = utcBase.AddDays(10).AddHours(9),     // 2025-05-11 09:00 UTC — outside the recurrence window
-            StartTime = utcBase.AddDays(10).AddHours(15),
+            OriginalTime = rangeStart.AddDays(10).AddHours(9),     // 2025-05-11 09:00 UTC — outside the recurrence window
+            StartTime = rangeStart.AddDays(10).AddHours(15),
             Duration = TimeSpan.FromHours(1),
             Description = "Invalid override",
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(utcBase, utcBase.AddDays(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
 
         Assert.AreEqual(3, occurrences.Count, "Expected 3 normal daily occurrences.");
         Assert.IsFalse(occurrences.Any(x => x.Description == "Invalid override"), "Override outside series should be ignored.");
@@ -652,24 +684,26 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenStandaloneOccurrenceIsInRange_ShouldBeIncluded()
     {
         // Arrange
-        var startTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endTime = startTime.AddDays(2);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
 
         var occurrence = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = startTime.AddDays(1).AddHours(8),
+            StartTime = rangeStart.AddDays(1).AddHours(8),
             Duration = TimeSpan.FromHours(1),
             Description = "Standalone"
         };
 
-        await _occurrenceRepository.InsertAsync(occurrence);
+        _occurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([occurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startTime, endTime);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var match = results.SingleOrDefault(x => x.Id == occurrence.Id);
+        var match = await results.SingleOrDefaultAsync(x => x.Id == occurrence.Id);
         Assert.IsNotNull(match, "Expected standalone occurrence to be included.");
         Assert.AreEqual("Standalone", match.Description);
     }
@@ -678,37 +712,39 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenStandaloneOccurrenceIsOutOfRange_ShouldBeExcluded()
     {
         // Arrange
-        var startTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endTime = startTime.AddDays(2);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
 
         var occurrence = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = startTime.AddDays(5).AddHours(8),
+            StartTime = rangeStart.AddDays(5).AddHours(8),
             Duration = TimeSpan.FromHours(1),
             Description = "Too late"
         };
 
-        await _occurrenceRepository.InsertAsync(occurrence);
+        _occurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([occurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startTime, endTime);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        Assert.IsFalse(results.Any(x => x.Id == occurrence.Id), "Out-of-range standalone occurrence should be excluded.");
+        Assert.IsFalse(await results.AnyAsync(x => x.Id == occurrence.Id), "Out-of-range standalone occurrence should be excluded.");
     }
 
     [TestMethod]
     public async Task GetOccurrencesAsync_WhenStandaloneOccurrenceAtRangeBoundaries_ShouldBehaveCorrectly()
     {
         // Arrange
-        var startTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endTime = startTime.AddDays(2);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
 
         var inclusiveOccurrence = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = startTime.AddHours(8),
+            StartTime = rangeStart.AddHours(8),
             Duration = TimeSpan.FromHours(1),
             Description = "Inclusive"
         };
@@ -716,16 +752,17 @@ public class VirtualizationServiceTests
         var exclusiveOccurrence = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = endTime,
+            StartTime = rangeEnd,
             Duration = TimeSpan.FromHours(1),
             Description = "Exclusive"
         };
 
-        await _occurrenceRepository.InsertAsync(inclusiveOccurrence);
-        await _occurrenceRepository.InsertAsync(exclusiveOccurrence);
+        _occurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([inclusiveOccurrence, exclusiveOccurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startTime, endTime);
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         Assert.IsTrue(results.Any(x => x.Id == inclusiveOccurrence.Id), "Inclusive occurrence should be returned.");
@@ -736,15 +773,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenStandaloneAndVirtualizedOverlap_ShouldBothBeIncluded()
     {
         // Arrange
-        var utcBase = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var utcEnd = utcBase.AddDays(2);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = utcBase.AddDays(3), // inclusive up to May 3
+            RecurrenceEndTime = rangeStart.AddDays(3), // inclusive up to May 3
             RRule = "FREQ=DAILY;COUNT=3",
             TimeZone = "UTC",
             Description = "Daily"
@@ -753,16 +790,21 @@ public class VirtualizationServiceTests
         var standalone = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = utcBase.AddHours(9), // overlaps with recurrence
+            StartTime = rangeStart.AddHours(9), // overlaps with recurrence
             Duration = TimeSpan.FromHours(1),
             Description = "Standalone at same time"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
-        await _occurrenceRepository.InsertAsync(standalone);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
+
+        _occurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([standalone]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(utcBase, utcEnd);
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         Assert.IsTrue(results.Any(x => x.Id == standalone.Id), "Standalone occurrence should be included.");
@@ -778,9 +820,11 @@ public class VirtualizationServiceTests
 
         // Local time: 2025-05-01 09:00 in New York (EDT, UTC-4)
         var localStart = new DateTime(2025, 5, 1, 9, 0, 0, DateTimeKind.Unspecified);
-  
+
         var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, tzInfo); // 2025-05-01T13:00Z
-  
+        var rangeStart = utcStart.Date;
+        var rangeEnd = rangeStart.AddDays(1);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
@@ -792,16 +836,15 @@ public class VirtualizationServiceTests
             Description = "TZ Test"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
-
-        var queryStart = utcStart.Date;
-        var queryEnd = queryStart.AddDays(1);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(queryStart, queryEnd);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrence = results.SingleOrDefault(x => x.Recurrence?.Id == recurrence.Id);
+        var occurrence = await results.SingleOrDefaultAsync(x => x.Recurrence?.Id == recurrence.Id);
         Assert.IsNotNull(occurrence, "Expected one materialized occurrence.");
         Assert.AreEqual("TZ Test", occurrence.Description);
         Assert.AreEqual(utcStart, occurrence.StartTime, "StartTime should match expected UTC.");
@@ -811,8 +854,8 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenTwoTimeZonesUsed_ShouldProduceDifferentResults()
     {
         // Arrange
-        var utcStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var utcEnd = utcStart.AddDays(1);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(1);
 
         // Eastern Time (UTC-4 in May)
         var easternLocal = new DateTime(2025, 5, 1, 9, 0, 0);
@@ -846,11 +889,12 @@ public class VirtualizationServiceTests
             Description = "Pacific"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrenceEastern);
-        await _recurrenceRepository.InsertAsync(recurrencePacific);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrenceEastern, recurrencePacific]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(utcStart, utcEnd);
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         var eastern = results.SingleOrDefault(x => x.Recurrence?.Id == recurrenceEastern.Id);
@@ -872,27 +916,29 @@ public class VirtualizationServiceTests
         var adjustedLocalTime = new DateTime(2025, 3, 9, 3, 0, 0);
 
         // Convert valid time to UTC
-        var startUtc = TimeZoneInfo.ConvertTimeToUtc(adjustedLocalTime, tzInfo);
-        var endUtc = startUtc.AddHours(1);
+        var rangeStart = TimeZoneInfo.ConvertTimeToUtc(adjustedLocalTime, tzInfo);
+        var rangeEnd = rangeStart.AddHours(4);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = startUtc,
+            StartTime = rangeStart,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = endUtc,
+            RecurrenceEndTime = rangeEnd,
             RRule = "FREQ=DAILY;COUNT=1",
             TimeZone = tzId,
             Description = "Spring Forward"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(startUtc, startUtc.AddHours(4));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrence = results.SingleOrDefault(x => x.Recurrence?.Id == recurrence.Id);
+        var occurrence = await results.SingleOrDefaultAsync(x => x.Recurrence?.Id == recurrence.Id);
         Assert.IsNotNull(occurrence, "Occurrence during spring forward should still materialize.");
         Assert.AreEqual("Spring Forward", occurrence.Description);
     }
@@ -906,6 +952,9 @@ public class VirtualizationServiceTests
         var localStart = new DateTime(2025, 5, 1, 9, 0, 0, DateTimeKind.Unspecified);
         var expectedUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tzInfo);
 
+        var rangeStart = expectedUtc.Date;
+        var rangeEnd = rangeStart.AddDays(1);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
@@ -917,16 +966,15 @@ public class VirtualizationServiceTests
             Description = "UTC Mapping"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
-
-        var rangeStart = expectedUtc.Date;
-        var rangeEnd = rangeStart.AddDays(1);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrence = results.SingleOrDefault(x => x.Recurrence?.Id == recurrence.Id);
+        var occurrence = await results.SingleOrDefaultAsync(x => x.Recurrence?.Id == recurrence.Id);
         Assert.IsNotNull(occurrence, "Expected materialized occurrence.");
         Assert.AreEqual(expectedUtc, occurrence.StartTime, "Occurrence should reflect correct UTC from local zone.");
     }
@@ -935,25 +983,29 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenRRULEExceedsRecurrenceEndTime_ShouldBeClipped()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 9, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 9, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(10);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime,
+            StartTime = rangeStart,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(2), // 2025-05-03 09:00 UTC, inclusive
+            RecurrenceEndTime = rangeStart.AddDays(2), // 2025-05-03 09:00 UTC, inclusive
             RRule = "FREQ=DAILY;COUNT=10",
             TimeZone = "UTC",
             Description = "Clipped rule"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(10));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(3, occurrences.Count, "Expected 3 occurrences: May 1, May 2, and May 3 (inclusive).");
 
         var expectedDates = new[]
@@ -974,27 +1026,29 @@ public class VirtualizationServiceTests
     {
         // Arrange
         var ruleStart = new DateTime(2025, 1, 1, 9, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
             StartTime = ruleStart,
             Duration = TimeSpan.FromHours(1),
             RecurrenceEndTime = ruleStart.AddDays(5),
-            RRule = "FREQ=DAILY;COUNT=5;UNTIL=20251102T013000Z",
+            RRule = "FREQ=DAILY;UNTIL=20251102T013000Z",
             TimeZone = "UTC",
             Description = "No match in range"
         };
 
-        var rangeStart = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc);
-        var rangeEnd = rangeStart.AddDays(2);
-
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.AreEqual(0, occurrences.Count, "Expected no matches from RRULE outside range.");
     }
 
@@ -1002,25 +1056,29 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenDenseRRULEUsed_ShouldNotCrashOrOverflow()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(1);
+
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(1),
+            RecurrenceEndTime = rangeStart.AddDays(1),
             RRule = "FREQ=MINUTELY;INTERVAL=1;UNTIL=20250502T000000Z",
             TimeZone = "UTC",
             Description = "High-frequency recurrence"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(1));
+        var results = _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd);
 
         // Assert
-        var occurrences = results.Where(x => x.Recurrence?.Id == recurrence.Id).ToList();
+        var occurrences = await results.Where(x => x.Recurrence?.Id == recurrence.Id).ToListAsync();
         Assert.IsTrue(occurrences.Count > 0, "Expected dense recurrence to produce materialized occurrences.");
     }
 
@@ -1028,15 +1086,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenRecurrenceAndStandaloneExist_ShouldMergeCorrectly()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var rangeEnd = baseTime.AddDays(2);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(2);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(10),
+            StartTime = rangeStart.AddHours(10),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(2),
+            RecurrenceEndTime = rangeStart.AddDays(2),
             RRule = "FREQ=DAILY;UNTIL=20251102T013000Z",
             TimeZone = "UTC",
             Description = "Series"
@@ -1045,16 +1103,21 @@ public class VirtualizationServiceTests
         var standalone = new Occurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddDays(1).AddHours(15),
+            StartTime = rangeStart.AddDays(1).AddHours(15),
             Duration = TimeSpan.FromHours(1),
             Description = "Single"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrence);
-        await _occurrenceRepository.InsertAsync(standalone);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
+
+        _occurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([standalone]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, rangeEnd);
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         Assert.IsTrue(results.Any(x => x.Recurrence?.Id == recurrence.Id), "Recurrence should produce virtualized occurrences.");
@@ -1065,15 +1128,17 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenExceptionsAndOverridesBothExist_ShouldApplyInCorrectOrder()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var targetTime = baseTime.AddDays(1).AddHours(9);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(4);
+
+        var targetTime = rangeStart.AddDays(1).AddHours(9);
 
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3),
+            RecurrenceEndTime = rangeStart.AddDays(3),
             RRule = "FREQ=DAILY;UNTIL=20250504T000000Z",
             TimeZone = "UTC",
             Description = "Complex rule"
@@ -1096,10 +1161,12 @@ public class VirtualizationServiceTests
             Recurrence = recurrence
         });
 
-        await _recurrenceRepository.InsertAsync(recurrence);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrence]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, baseTime.AddDays(4));
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         Assert.IsFalse(results.Any(x => x.Description == "Override loses"), "Override should be ignored due to exception.");
@@ -1110,15 +1177,15 @@ public class VirtualizationServiceTests
     public async Task GetOccurrencesAsync_WhenMultipleRecurrencesExist_ShouldBeHandledIndependently()
     {
         // Arrange
-        var baseTime = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var rangeEnd = baseTime.AddDays(3);
+        var rangeStart = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var rangeEnd = rangeStart.AddDays(3);
 
         var recurrenceA = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(9),
+            StartTime = rangeStart.AddHours(9),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3),
+            RecurrenceEndTime = rangeStart.AddDays(3),
             RRule = "FREQ=DAILY;UNTIL=20251102T013000Z",
             TimeZone = "UTC",
             Description = "A"
@@ -1127,19 +1194,20 @@ public class VirtualizationServiceTests
         var recurrenceB = new Recurrence
         {
             Id = Guid.NewGuid(),
-            StartTime = baseTime.AddHours(13),
+            StartTime = rangeStart.AddHours(13),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = baseTime.AddDays(3),
+            RecurrenceEndTime = rangeStart.AddDays(3),
             RRule = "FREQ=DAILY;UNTIL=20251102T013000Z",
             TimeZone = "UTC",
             Description = "B"
         };
 
-        await _recurrenceRepository.InsertAsync(recurrenceA);
-        await _recurrenceRepository.InsertAsync(recurrenceB);
+        _recurrenceRepository
+            .Setup(x => x.GetInRangeAsync(rangeStart, rangeEnd, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recurrenceA, recurrenceB]);
 
         // Act
-        var results = await _virtualizationService.GetOccurrencesAsync(baseTime, rangeEnd);
+        var results = await _virtualizationService.GetOccurrencesAsync(rangeStart, rangeEnd).ToListAsync();
 
         // Assert
         var countA = results.Count(x => x.Recurrence?.Id == recurrenceA.Id);
@@ -1148,6 +1216,5 @@ public class VirtualizationServiceTests
         Assert.AreEqual(3, countA, "Recurrence A should produce 3 occurrences.");
         Assert.AreEqual(3, countB, "Recurrence B should produce 3 occurrences.");
     }
-
 
 }

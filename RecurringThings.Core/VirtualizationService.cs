@@ -1,6 +1,7 @@
 ﻿namespace RecurringThings.Core;
 
 using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 using Domain;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -17,10 +18,10 @@ public class VirtualizationService(
     private readonly IOccurrenceRepository _occurrenceRepository = occurrenceRepository ?? throw new ArgumentNullException(nameof(occurrenceRepository));
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<VirtualizedOccurrence>> GetOccurrencesAsync(
+    public async IAsyncEnumerable<VirtualizedOccurrence> GetOccurrencesAsync(
         DateTime rangeStartUtc,
         DateTime rangeEndUtc,
-        CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (rangeStartUtc.Kind != DateTimeKind.Utc)
             throw new ArgumentException("Kind must be UTC.", nameof(rangeStartUtc));
@@ -34,14 +35,21 @@ public class VirtualizationService(
         var recurrences = await recurrencesTask;
         var occurrences = await occurrencesTask;
 
-        var results = new List<VirtualizedOccurrence>(recurrences.Count * 4 + occurrences.Count);
+        // return materialized recurrences.
+        if (recurrences != null)
+        {
+            foreach (var recurrence in recurrences)
+                foreach (var occurrence in Virtualize(recurrence, rangeStartUtc, rangeEndUtc))
+                    yield return occurrence;
+        }
 
-        foreach (var recurrence in recurrences)
-            results.AddRange(Virtualize(recurrence, rangeStartUtc, rangeEndUtc));
-
-        results.AddRange(occurrences.Select(o => o.AsVirtualized()));
-
-        return results.AsReadOnly();
+        // return standalone occurrences.
+        if (occurrences != null)
+        {
+            foreach (var occurrence in occurrences)
+                if (IsInRange(occurrence, rangeStartUtc, rangeEndUtc))
+                    yield return occurrence.AsVirtualized();
+        }
     }
 
     /// <summary>
@@ -99,9 +107,25 @@ public class VirtualizationService(
                 v.Duration = o.Period.Duration;
                 return v;
             })
-            .Where(x =>
-                x.StartTime >= rangeStartUtc &&
-                x.StartTime < rangeEndUtc &&
-                x.StartTime <= recurrence.RecurrenceEndTime);
+            .Where(x => IsInRange(x, rangeStartUtc, rangeEndUtc) &&
+                        x.StartTime <= recurrence.RecurrenceEndTime);
     }
+
+    /// <summary>
+    ///     Gets whether the specified <see cref="ICalendarEntry"/> is within range, or not.
+    /// </summary>
+    /// <param name="entry"></param>
+    /// <param name="rangeStartUtc"></param>
+    /// <param name="rangeEndUtc"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsInRange(
+        ICalendarEntry entry,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc)
+    {
+        return entry.StartTime >= rangeStartUtc &&
+               entry.StartTime < rangeEndUtc;
+    }
+
 }

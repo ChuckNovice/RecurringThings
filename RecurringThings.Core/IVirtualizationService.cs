@@ -18,7 +18,7 @@ public interface IVirtualizationService
     /// <param name="rangeEndUtc"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<IReadOnlyList<VirtualizedOccurrence>> GetOccurrencesAsync(
+    IAsyncEnumerable<VirtualizedOccurrence> GetOccurrencesAsync(
         DateTime rangeStartUtc, 
         DateTime rangeEndUtc, 
         CancellationToken cancellationToken = default);

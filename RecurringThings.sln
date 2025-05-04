@@ -5,8 +5,6 @@ VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings.Core", "RecurringThings.Core\RecurringThings.Core.csproj", "{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings.FakeDatabase", "RecurringThings.FakeDatabase\RecurringThings.FakeDatabase.csproj", "{A6762589-B8DE-4303-9291-74807DFF2872}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecurringThings.Tests", "RecurringThings.Tests\RecurringThings.Tests.csproj", "{B623CFC0-876D-4197-A220-10BB7B57AA02}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{825D7461-B617-4964-8C2B-35A41E8C5882}"
@@ -32,10 +30,6 @@ Global
 		{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8802E0DE-C1BF-4521-AE48-F8440EA7A7BD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A6762589-B8DE-4303-9291-74807DFF2872}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A6762589-B8DE-4303-9291-74807DFF2872}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A6762589-B8DE-4303-9291-74807DFF2872}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A6762589-B8DE-4303-9291-74807DFF2872}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B623CFC0-876D-4197-A220-10BB7B57AA02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B623CFC0-876D-4197-A220-10BB7B57AA02}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B623CFC0-876D-4197-A220-10BB7B57AA02}.Release|Any CPU.ActiveCfg = Release|Any CPU
