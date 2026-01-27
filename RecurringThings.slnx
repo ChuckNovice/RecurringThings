@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RecurringThings.MongoDB/RecurringThings.MongoDB.csproj" />
+    <Project Path="src/RecurringThings.PostgreSQL/RecurringThings.PostgreSQL.csproj" />
+    <Project Path="src/RecurringThings/RecurringThings.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RecurringThings.MongoDB.Tests/RecurringThings.MongoDB.Tests.csproj" />
+    <Project Path="tests/RecurringThings.PostgreSQL.Tests/RecurringThings.PostgreSQL.Tests.csproj" />
+    <Project Path="tests/RecurringThings.Tests/RecurringThings.Tests.csproj" />
+  </Folder>
+</Solution>

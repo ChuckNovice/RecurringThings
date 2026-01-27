@@ -1,260 +1,510 @@
-﻿# Recurring System Architecture and Virtualization
+# RecurringThings
 
-This document explains the design and internal logic of the **RecurringThings** sample project, which demonstrates how to implement a recurrence system with support for time zones, daylight saving time, overrides, and exceptions. The system is intentionally scoped to focus on materializing occurrences for querying. Features like UI interaction, editing recurrences, or long-term audit are explicitly out of scope.
+[![CI](https://github.com/ChuckNovice/RecurringThings/actions/workflows/ci.yml/badge.svg)](https://github.com/ChuckNovice/RecurringThings/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/RecurringThings.svg)](https://www.nuget.org/packages/RecurringThings/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## Overview
+A .NET library for managing recurring events with on-demand virtualization. Instead of pre-materializing all future instances, RecurringThings generates occurrences dynamically during queries, enabling efficient storage and flexible manipulation of calendar-like data.
 
-The recurring system provides a unified view of time-based entries, whether they are standalone or generated from a recurrence pattern. Recurrences are not stored as a list of future instances. Instead, they are virtualized on demand, merged with any non-recurring occurrences and filtered for the requested date range.
+## Features
 
-This approach mirrors strategies used in modern calendar systems like Google Calendar and Microsoft Outlook. The key differentiator is the on-demand generation of instances through a **virtualization service**, while managing edge cases like daylight saving time and partial overrides.
+- **On-demand virtualization**: Generate recurring instances only when queried, not stored
+- **Multi-tenant isolation**: Built-in organization and resource path scoping
+- **Database flexibility**: Pluggable persistence with MongoDB and PostgreSQL
+- **Transaction support**: Integration with Transactional library for ACID operations
+- **Time zone correctness**: Proper DST handling using IANA time zones and NodaTime
+- **RFC 5545 RRule support**: Full recurrence rule support via Ical.Net
 
-## Recurrence Model and Data Structure
+## Installation
 
-A recurrence represents a logical instruction to repeat an action or event at defined intervals. Rather than duplicating this across all future occurrences, we store a rule (`RRule`) and boundaries. For example: “Every weekday at 9AM until May 5th.”
+RecurringThings is distributed as three NuGet packages:
 
-All recurrence-based calculations are anchored in UTC and annotated with a time zone using IANA identifiers (e.g., `America/New_York`), allowing for proper reconstruction of local times during generation.
+```bash
+# Core library (always required)
+dotnet add package RecurringThings
 
-### Entity Definitions
+# Choose ONE persistence provider:
+dotnet add package RecurringThings.MongoDB     # For MongoDB
+dotnet add package RecurringThings.PostgreSQL  # For PostgreSQL
+```
 
--   **Recurrence**: Holds the pattern (RRule), time window, and time zone.
-    
--   **Occurrence**: Represents a singular non-repeating event.
-    
--   **OccurrenceException**: Cancels a virtualized recurrence instance at a specific point in time.
-    
--   **OccurrenceOverride**: Replaces a virtualized instance with a customized one.
-    
--   **VirtualizedOccurrence**: A transient runtime object that normalizes output for both real and virtual entries.
-    
+## Quick Start
 
-All `DateTime` fields in persistent storage are in **UTC**. This includes recurrence boundaries, overrides, and exception targets.
+### MongoDB Setup
 
-### Schema Diagram
+```csharp
+using RecurringThings.Configuration;
+using RecurringThings.MongoDB.Configuration;
 
-```mermaid
-erDiagram
-    Recurrence {
-        Guid Id
-        DateTime StartTime 
-        TimeSpan Duration
-        DateTime RecurrenceEndTime
-        string RRule
-        string TimeZone
-        string Description
+services.AddRecurringThings(builder =>
+    builder.UseMongoDb(options =>
+    {
+        options.ConnectionString = "mongodb://localhost:27017";
+        options.DatabaseName = "myapp";
+        options.CollectionName = "recurring_things"; // Optional, default
+    }));
+```
+
+### PostgreSQL Setup
+
+```csharp
+using RecurringThings.Configuration;
+using RecurringThings.PostgreSQL.Configuration;
+
+services.AddRecurringThings(builder =>
+    builder.UsePostgreSql(options =>
+    {
+        options.ConnectionString = "Host=localhost;Database=myapp;Username=user;Password=pass";
+        options.RunMigrationsOnStartup = true; // Optional, default is true
+    }));
+```
+
+### Basic Usage
+
+```csharp
+public class CalendarService(IRecurrenceEngine engine)
+{
+    public async Task CreateWeeklyMeetingAsync()
+    {
+        var recurrence = await engine.CreateRecurrenceAsync(new RecurrenceCreate
+        {
+            Organization = "tenant1",
+            ResourcePath = "user123/calendar",
+            Type = "meeting",
+            StartTimeUtc = new DateTime(2025, 1, 6, 14, 0, 0, DateTimeKind.Utc),
+            Duration = TimeSpan.FromHours(1),
+            RecurrenceEndTimeUtc = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z",
+            TimeZone = "America/New_York",
+            Extensions = new Dictionary<string, string>
+            {
+                ["title"] = "Weekly Team Standup",
+                ["location"] = "Conference Room A"
+            }
+        });
     }
 
-    Occurrence {
-        Guid Id
-        DateTime StartTime
-        TimeSpan Duration
-        string Description
+    public async Task GetJanuaryEntriesAsync()
+    {
+        var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = new DateTime(2025, 1, 31, 23, 59, 59, DateTimeKind.Utc);
+
+        await foreach (var entry in engine.GetAsync("tenant1", "user123/calendar", start, end, null))
+        {
+            Console.WriteLine($"{entry.Type}: {entry.StartTime} - {entry.EndTime}");
+        }
     }
+}
+```
 
-    OccurrenceException {
-        Guid Id
-        Guid RecurrenceId
-        DateTime OriginalTime
+## Usage Examples
+
+### Creating a Recurrence
+
+```csharp
+// Daily weekday recurrence (Mon-Fri)
+var recurrence = await engine.CreateRecurrenceAsync(new RecurrenceCreate
+{
+    Organization = "tenant1",
+    ResourcePath = "user123/calendar",
+    Type = "appointment",
+    StartTimeUtc = new DateTime(2025, 1, 1, 9, 0, 0, DateTimeKind.Utc),
+    Duration = TimeSpan.FromHours(1),
+    RecurrenceEndTimeUtc = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+    RRule = "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
+    TimeZone = "America/New_York"
+});
+```
+
+### Creating a Standalone Occurrence
+
+```csharp
+// Single non-recurring event
+var occurrence = await engine.CreateOccurrenceAsync(new OccurrenceCreate
+{
+    Organization = "tenant1",
+    ResourcePath = "user123/calendar",
+    Type = "meeting",
+    StartTimeUtc = new DateTime(2025, 3, 15, 14, 0, 0, DateTimeKind.Utc),
+    Duration = TimeSpan.FromMinutes(30),
+    TimeZone = "America/New_York",
+    Extensions = new Dictionary<string, string>
+    {
+        ["title"] = "One-time Client Meeting"
     }
+});
+```
 
-    OccurrenceOverride {
-        Guid Id
-        Guid RecurrenceId
-        DateTime OriginalTime
-        DateTime StartTime
-        TimeSpan Duration
-        string Description
+### Querying Entries
+
+Results are streamed via `IAsyncEnumerable` for efficient memory usage:
+
+```csharp
+// Get all entries in a date range
+await foreach (var entry in engine.GetAsync(
+    organization: "tenant1",
+    resourcePath: "user123/calendar",
+    startUtc: new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+    endUtc: new DateTime(2025, 1, 31, 23, 59, 59, DateTimeKind.Utc),
+    types: null)) // null = all types
+{
+    // entry.RecurrenceId is set for recurrence patterns
+    // entry.OccurrenceId is set for standalone occurrences
+    // entry.RecurrenceOccurrenceDetails is set for virtualized occurrences
+    Console.WriteLine($"{entry.StartTime}: {entry.Type}");
+}
+
+// Filter by specific types
+await foreach (var entry in engine.GetAsync(
+    "tenant1", "user123/calendar", start, end,
+    types: ["appointment", "meeting"]))
+{
+    // Only appointments and meetings
+}
+```
+
+### Updating Entries
+
+Update behavior depends on entry type:
+
+```csharp
+// Get an entry
+var entries = await engine.GetAsync(org, path, start, end, null).ToListAsync();
+var entry = entries.First();
+
+// Update a recurrence (only Duration and Extensions can be modified)
+if (entry.RecurrenceId.HasValue && entry.RecurrenceOccurrenceDetails == null)
+{
+    entry.Duration = TimeSpan.FromMinutes(90);
+    entry.Extensions = new Dictionary<string, string> { ["updated"] = "true" };
+    var updated = await engine.UpdateAsync(entry);
+}
+
+// Update a standalone occurrence (StartTime, Duration, Extensions can be modified)
+if (entry.OccurrenceId.HasValue)
+{
+    entry.StartTime = entry.StartTime.AddHours(1);
+    entry.Duration = TimeSpan.FromMinutes(45);
+    var updated = await engine.UpdateAsync(entry);
+    // EndTime is automatically recomputed
+}
+
+// Update a virtualized occurrence (creates or updates an override)
+if (entry.RecurrenceOccurrenceDetails != null)
+{
+    entry.Duration = TimeSpan.FromMinutes(45);
+    var updated = await engine.UpdateAsync(entry);
+    // Original values are preserved in RecurrenceOccurrenceDetails.Original
+}
+```
+
+### Deleting Entries
+
+Delete behavior depends on entry type:
+
+```csharp
+// Delete a recurrence - deletes entire series including all exceptions and overrides
+await engine.DeleteAsync(recurrenceEntry);
+
+// Delete a standalone occurrence - direct delete
+await engine.DeleteAsync(standaloneEntry);
+
+// Delete a virtualized occurrence - creates an exception (occurrence won't appear in future queries)
+await engine.DeleteAsync(virtualizedEntry);
+```
+
+### Restoring Overridden Occurrences
+
+If a virtualized occurrence has been modified (has an override), you can restore it to its original state:
+
+```csharp
+// Only works for virtualized occurrences that have an override
+if (entry.OverrideId.HasValue)
+{
+    await engine.RestoreAsync(entry);
+    // The override is deleted; the occurrence reverts to its original recurrence values
+}
+```
+
+### Using Transactions
+
+RecurringThings integrates with the Transactional library for ACID operations:
+
+```csharp
+// With MongoDB
+var transactionManager = serviceProvider.GetRequiredService<IMongoTransactionManager>();
+await using var context = await transactionManager.BeginTransactionAsync();
+
+try
+{
+    await engine.CreateRecurrenceAsync(request1, context);
+    await engine.CreateOccurrenceAsync(request2, context);
+    await context.CommitAsync();
+}
+catch
+{
+    await context.RollbackAsync();
+    throw;
+}
+```
+
+## Domain Model
+
+### Core Entities
+
+| Entity | Description |
+|--------|-------------|
+| **Recurrence** | Stores RRule pattern, time window, timezone, and duration |
+| **Occurrence** | Standalone non-repeating events |
+| **OccurrenceException** | Cancels a virtualized recurrence instance |
+| **OccurrenceOverride** | Replaces a virtualized instance with customized values |
+| **CalendarEntry** | Unified query result abstraction for all entry types |
+
+### CalendarEntry Type Identification
+
+```csharp
+// Recurrence pattern (the series definition itself)
+if (entry.RecurrenceId.HasValue && entry.RecurrenceOccurrenceDetails == null)
+{
+    // This is the recurrence pattern, not a virtualized occurrence
+    var rrule = entry.RecurrenceDetails?.RRule;
+}
+
+// Standalone occurrence
+if (entry.OccurrenceId.HasValue)
+{
+    // Non-recurring single event
+}
+
+// Virtualized occurrence from a recurrence
+if (entry.RecurrenceOccurrenceDetails != null)
+{
+    // Generated from a recurrence pattern
+    var recurrenceId = entry.RecurrenceOccurrenceDetails.RecurrenceId;
+
+    if (entry.OverrideId.HasValue)
+    {
+        // Has been modified; original values in entry.RecurrenceOccurrenceDetails.Original
     }
-
-    Recurrence ||--o{ OccurrenceException : has
-    Recurrence ||--o{ OccurrenceOverride : has
-
+}
 ```
 
-## Virtualization Lifecycle and Execution
+## Immutability Rules
 
-The virtualization service provides a single method: `GetOccurrencesAsync(DateTime startUtc, DateTime endUtc)`. This method accepts a time window in UTC and returns all occurrences — both standalone and virtualized — that fall within the range.
+### Recurrence (Pattern)
 
-### Execution Flow
+| Field | Mutable |
+|-------|---------|
+| Organization | No |
+| ResourcePath | No |
+| Type | No |
+| TimeZone | No |
+| StartTime | No |
+| RRule | No |
+| RecurrenceEndTime | No |
+| **Duration** | **Yes** |
+| **Extensions** | **Yes** |
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant VirtualizationService
-    participant RecurrenceRepository
-    participant OccurrenceRepository
-    participant IcalEngine
+### Standalone Occurrence
 
-    Client->>VirtualizationService: GetOccurrencesAsync(start, end)
-    VirtualizationService->>RecurrenceRepository: GetInRangeAsync(start, end)
-    VirtualizationService->>OccurrenceRepository: GetInRangeAsync(start, end)
-    RecurrenceRepository-->>VirtualizationService: [Recurrences]
-    OccurrenceRepository-->>VirtualizationService: [Occurrences]
+| Field | Mutable |
+|-------|---------|
+| Organization | No |
+| ResourcePath | No |
+| Type | No |
+| TimeZone | No |
+| **StartTime** | **Yes** |
+| **Duration** | **Yes** |
+| **Extensions** | **Yes** |
 
-    loop each recurrence
-        VirtualizationService->>IcalEngine: Generate instances via RRULE
-        IcalEngine-->>VirtualizationService: [Periods]
-        VirtualizationService->>VirtualizationService: Apply exceptions and overrides
-    end
+Note: When StartTime or Duration is modified, EndTime is automatically recomputed.
 
-    VirtualizationService-->>Client: [VirtualizedOccurrences + Occurrences]
+### Override (Virtualized Occurrence Modification)
 
+| Field | Mutable |
+|-------|---------|
+| **StartTime** | **Yes** |
+| **Duration** | **Yes** |
+| **Extensions** | **Yes** |
+
+## State Transition Rules
+
+### Update Operations
+
+| Entry Type | Has Override | Allowed | Behavior |
+|------------|--------------|---------|----------|
+| Recurrence | N/A | Yes | Update Duration/Extensions only |
+| Standalone | N/A | Yes | Update StartTime/Duration/Extensions, recompute EndTime |
+| Virtualized | No | Yes | Create override (denormalize original values) |
+| Virtualized | Yes | Yes | Update override, recompute EndTime |
+
+### Delete Operations
+
+| Entry Type | Has Override | Allowed | Behavior |
+|------------|--------------|---------|----------|
+| Recurrence | N/A | Yes | Delete series + all exceptions/overrides |
+| Standalone | N/A | Yes | Direct delete |
+| Virtualized | No | Yes | Create exception |
+| Virtualized | Yes | Yes | Delete override, create exception at original time |
+
+### Restore Operations
+
+| Entry Type | Has Override | Allowed | Behavior |
+|------------|--------------|---------|----------|
+| Recurrence | N/A | No | Error |
+| Standalone | N/A | No | Error |
+| Virtualized | No | No | Error |
+| Virtualized | Yes | Yes | Delete override |
+
+## RRule Requirements
+
+### UNTIL Required, COUNT Not Supported
+
+RecurringThings requires RRule to specify UNTIL; COUNT is not supported.
+
+**Rationale**: COUNT prevents efficient query range filtering since the recurrence end time cannot be determined without full virtualization.
+
+```csharp
+// Valid - uses UNTIL
+RRule = "FREQ=DAILY;UNTIL=20251231T235959Z"
+
+// Invalid - uses COUNT
+RRule = "FREQ=DAILY;COUNT=10"  // Throws ArgumentException
 ```
 
-### Internal Process
+### UNTIL Must Be UTC
 
-1.  **Recurrence Filtering**  
-    The repository returns only recurrences whose series intersect with the query range based on their `StartTime` and `RecurrenceEndTime`. This ensures no unrelated data is processed.
-    
-2.  **Time Zone Reconstruction**  
-    Each recurrence's UTC values are converted to local time using the configured IANA time zone. This is required for Ical.Net to process RRULEs correctly.
-    
-3.  **Materialization**  
-    The RRULE is applied to the recurrence using Ical.Net, producing theoretical occurrences in local time. These are then converted back to UTC.
-    
-4.  **Exceptions**  
-    Any instance that matches an `OriginalTime` in the `OccurrenceException` list is discarded. This cancels the virtual occurrence entirely.
-    
-5.  **Overrides**  
-    If a matching `OriginalTime` is found in `OccurrenceOverride`, the virtual occurrence is replaced with the override’s `StartTime`, `Duration`, and `Description`.
-    
-6.  **Filtering**  
-    Results are clipped by the user’s query range and the recurrence’s `RecurrenceEndTime`.
+The UNTIL value must be in UTC (Z suffix) to eliminate DST ambiguity.
 
-### Exception and Override Mechanics
+```csharp
+// Valid - UTC time with Z suffix
+RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z"
 
-```mermaid
-flowchart TD
-    A[Recurrence Instance Materialized] --> B{Is there an Exception?}
-    B -- Yes --> X[Discard Instance]
-    B -- No --> C{Is there an Override?}
-    C -- Yes --> Y[Replace with Override Instance]
-    C -- No --> Z[Keep as is]
-
+// Invalid - local time without Z suffix
+RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959"  // Throws ArgumentException
 ```
 
--   **Exception priority**: If both an exception and override exist for the same `OriginalTime`, the exception takes precedence.
-    
--   **Overrides** are matched by original UTC `StartTime`, and are only included in results if the **new** `StartTime` falls within the query range.
-    
+### RecurrenceEndTimeUtc Must Match UNTIL
 
-> Outlook and Google Calendar refer to overrides as “Modified Occurrences.”
+The `RecurrenceEndTimeUtc` field must match the UNTIL value in the RRule.
 
-### Output and Merging
+## Time Zone Handling
 
-The final output is a flat list of `VirtualizedOccurrence` objects that normalize both recurrence-based and standalone entries. This format is ideal for calendars or timelines. If a real `Occurrence` and a virtualized one exist at the same time, both are included. No deduplication is performed.
+RecurringThings uses IANA time zone identifiers (e.g., `America/New_York`) and NodaTime for correct DST handling.
 
-## Time Zone Handling and Constraints
+### DST Transitions
 
-All persistence and filtering is done in **UTC**. The only exception is the **local time transformation** done temporarily inside the virtualization layer. This is needed for RRULE parsing to reflect real-world behavior, including daylight transitions.
+The library correctly handles:
+- **Spring forward** (2 AM -> 3 AM): Skipped hours don't generate occurrences
+- **Fall back** (2 AM -> 1 AM): Ambiguous times resolved consistently
 
-> ⚠️ All time zones must use **IANA** format (`America/Chicago`, not `Central Standard Time`). Conversions are handled using NodaTime to ensure cross-platform consistency.
-
-## Limitations and Implementation Scope
-
-This sample is purposefully limited. The following items are out of scope:
-
--   **Editing or deleting recurrences**
-    
--   **Retaining history when modifying a series**
-    
--   **Linking cloned recurrences post-edit**
-    
--   **UI interaction models**
-    
--   **Error handling and validation**
-    
-
-The implementer is expected to:
-
--   Generate `RRule` strings from a validated high-level structure.
-    
--   Design their own editing workflows.
-    
--   Store additional fields by extending the `ICalendarEntry` interface and replicating them in `Recurrence`, `OccurrenceOverride`, and `Occurrence`.
-    
-## Extending the System
-
-Fields like `Location`, `Color`, `IsAllDay` or any other field specific to different types of occurrence such as tasks or appointments can be supported by adding them to the `ICalendarEntry` interface. These fields:
-
--   Will be inherited by `Recurrence` and passed into each `VirtualizedOccurrence`
-    
--   Can be overridden in `OccurrenceOverride` entries
-    
--   Will appear uniformly in merged output
-
-## Benchmarks
-
-This benchmark measures the performance of iCal.NET when generating recurring event occurrences over a one-year period. It compares single-threaded and multi-threaded approaches across a range of recurrence rule complexities to evaluate scalability and efficiency under realistic calendar scenarios.
-
-### Ical.Net v4
-
-```
-BenchmarkDotNet v0.14.0, Windows 11 (10.0.22631.5189/23H2/2023Update/SunValley3)
-AMD Ryzen 9 3900X, 1 CPU, 24 logical and 12 physical cores
-.NET SDK 8.0.200
-  [Host]   : .NET 8.0.2 (8.0.224.6711), X64 RyuJIT AVX2 [AttachedDebugger]
-  .NET 8.0 : .NET 8.0.2 (8.0.224.6711), X64 RyuJIT AVX2
-
-Job=.NET 8.0  Runtime=.NET 8.0  
+```csharp
+var recurrence = await engine.CreateRecurrenceAsync(new RecurrenceCreate
+{
+    // ...
+    TimeZone = "America/New_York",  // IANA identifier required
+    RRule = "FREQ=DAILY;UNTIL=20251231T235959Z"
+});
 ```
 
-| Method          | Case                 | Mean         | Error      | StdDev     | Ratio | RatioSD | Gen0      | Gen1     | Gen2     | Allocated   | Alloc Ratio |
-|---------------- |--------------------- |-------------:|-----------:|-----------:|------:|--------:|----------:|---------:|---------:|------------:|------------:|
-| **Single-Threaded** | **Daily**                | **11,137.21 μs** | **222.206 μs** | **608.285 μs** |  **1.00** |    **0.08** | **2484.3750** | **765.6250** | **250.0000** | **20175.88 KB** |        **1.00** |
-| Multi-Threaded  | Daily                |  8,349.09 μs | 166.404 μs | 216.372 μs |  0.75 |    0.04 | 2671.8750 | 781.2500 | 281.2500 | 21528.67 KB |        1.07 |
-|          |         |            |             |
-| **Single-Threaded** | **Daily until 2021**     | **10,823.55 μs** | **215.321 μs** | **301.850 μs** |  **1.00** |    **0.04** | **2484.3750** | **765.6250** | **250.0000** | **20177.49 KB** |        **1.00** |
-| Multi-Threaded  | Daily until 2021     |  8,453.32 μs | 166.411 μs | 184.965 μs |  0.78 |    0.03 | 2687.5000 | 765.6250 | 265.6250 | 21570.39 KB |        1.07 |
-|          |         |            |             |
-| **Single-Threaded** | **Monthly (1st Friday)** |    **242.24 μs** |   **4.831 μs** |  **10.400 μs** |  **1.00** |    **0.06** |   **82.2754** |  **12.4512** |        **-** |   **673.88 KB** |        **1.00** |
-| Multi-Threaded  | Monthly (1st Friday) |    361.40 μs |   6.959 μs |   6.834 μs |  1.49 |    0.07 |  206.0547 |  60.5469 |        - |  1672.47 KB |        2.48 |
-|          |         |            |             |
-| **Single-Threaded** | **Weekl(...)d/Fri [21]** |  **3,351.13 μs** |  **65.171 μs** |  **93.466 μs** |  **1.00** |    **0.04** | **1054.6875** | **792.9688** |        **-** |  **8627.74 KB** |        **1.00** |
-| Multi-Threaded  | Weekl(...)d/Fri [21] |  3,557.36 μs |  69.883 μs |  65.368 μs |  1.06 |    0.03 | 1390.6250 | 867.1875 | 109.3750 | 11310.39 KB |        1.31 |
-|          |         |            |             |
-| **Single-Threaded** | **Yearly on Dec 25**     |     **24.75 μs** |   **0.481 μs** |   **1.066 μs** |  **1.00** |    **0.06** |    **7.9956** |   **0.2441** |        **-** |    **65.46 KB** |        **1.00** |
-| Multi-Threaded  | Yearly on Dec 25     |    144.12 μs |   2.828 μs |   3.677 μs |  5.83 |    0.28 |   34.1797 |   1.9531 |        - |   278.83 KB |        4.26 |
+### Virtualization Flow
 
-<table>
-  <tr>
-    <td><img src="/assets/ical-v4-barplot.png" width="400"/></td>
-    <td><img src="/assets/ical-v4-boxplot.png" width="400"/></td>
-  </tr>
-</table>
+1. Query recurrences whose series intersect with query range
+2. Convert UTC to local time using IANA time zone
+3. Apply RRule using Ical.Net to generate theoretical instances
+4. Convert instances back to UTC
+5. Apply exceptions (discard) and overrides (replace)
+6. Filter by query range
 
-### Ical.Net 5.0.0-pre.42
+## Multi-Tenancy
 
-iCal v5 offers significant performance improvement over the previous version.
+### Organization Isolation
 
+All entities require an `Organization` identifier for multi-tenant SaaS applications:
+
+```csharp
+var entry = await engine.CreateRecurrenceAsync(new RecurrenceCreate
+{
+    Organization = "tenant-abc",  // Required, 0-100 characters
+    ResourcePath = "user123/calendar",
+    // ...
+});
 ```
-BenchmarkDotNet v0.14.0, Windows 11 (10.0.22631.5189/23H2/2023Update/SunValley3)
-AMD Ryzen 9 3900X, 1 CPU, 24 logical and 12 physical cores
-.NET SDK 8.0.200
-  [Host]   : .NET 8.0.2 (8.0.224.6711), X64 RyuJIT AVX2 [AttachedDebugger]
-  .NET 8.0 : .NET 8.0.2 (8.0.224.6711), X64 RyuJIT AVX2
 
-Job=.NET 8.0  Runtime=.NET 8.0  
+### Resource Path Scoping
+
+`ResourcePath` enables hierarchical resource organization:
+
+```csharp
+// Examples of resource paths
+ResourcePath = "user123/calendar"
+ResourcePath = "store456/open-hours"
+ResourcePath = ""  // Empty is allowed for global scope
 ```
-| Method          | Case                 | Mean       | Error      | StdDev     | Median     | Ratio | RatioSD | Gen0     | Gen1    | Allocated  | Alloc Ratio |
-|---------------- |--------------------- |-----------:|-----------:|-----------:|-----------:|------:|--------:|---------:|--------:|-----------:|------------:|
-| **Single-Threaded** | **Daily**                | **825.734 μs** | **16.5063 μs** | **46.0129 μs** | **811.032 μs** |  **1.00** |    **0.08** | **139.6484** |  **3.9063** | **1144.97 KB** |        **1.00** |
-| Multi-Threaded  | Daily                | 381.061 μs |  5.9635 μs |  5.2864 μs | 381.171 μs |  0.46 |    0.03 | 193.3594 | 23.4375 | 1578.35 KB |        1.38 |
-|                 |                      |            |            |            |            |       |         |          |         |            |             |
-| **Single-Threaded** | **Daily until 2021**     | **846.583 μs** | **16.5709 μs** | **21.5468 μs** | **843.998 μs** |  **1.00** |    **0.04** | **139.6484** |  **3.9063** | **1145.15 KB** |        **1.00** |
-| Multi-Threaded  | Daily until 2021     | 391.859 μs |  7.7368 μs | 15.2716 μs | 386.758 μs |  0.46 |    0.02 | 194.8242 | 23.9258 | 1582.66 KB |        1.38 |
-|                 |                      |            |            |            |            |       |         |          |         |            |             |
-| **Single-Threaded** | **Monthly (1st Friday)** |  **43.174 μs** |  **0.8342 μs** |  **0.9930 μs** |  **43.102 μs** |  **1.00** |    **0.03** |   **7.8125** |  **0.1221** |    **64.2 KB** |        **1.00** |
-| Multi-Threaded  | Monthly (1st Friday) | 149.798 μs |  2.9955 μs |  4.6636 μs | 149.301 μs |  3.47 |    0.13 |  40.5273 |  2.4414 |  331.24 KB |        5.16 |
-|                 |                      |            |            |            |            |       |         |          |         |            |             |
-| **Single-Threaded** | **Weekl(...)d/Fri [21]** | **434.560 μs** |  **8.6911 μs** | **12.4646 μs** | **430.627 μs** |  **1.00** |    **0.04** |  **71.2891** |  **1.4648** |  **585.44 KB** |        **1.00** |
-| Multi-Threaded  | Weekl(...)d/Fri [21] | 286.266 μs |  4.7300 μs |  3.9497 μs | 286.438 μs |  0.66 |    0.02 | 122.0703 | 12.6953 |  990.83 KB |        1.69 |
-|                 |                      |            |            |            |            |       |         |          |         |            |             |
-| **Single-Threaded** | **Yearly on Dec 25**     |   **7.735 μs** |  **0.1538 μs** |  **0.2611 μs** |   **7.710 μs** |  **1.00** |    **0.05** |   **1.5259** |  **0.0153** |   **12.54 KB** |        **1.00** |
-| Multi-Threaded  | Yearly on Dec 25     | 120.923 μs |  2.1355 μs |  1.7832 μs | 121.517 μs | 15.65 |    0.56 |  28.3203 |  1.4648 |  232.71 KB |       18.56 |
 
-<table>
-  <tr>
-    <td><img src="/assets/ical-v5-barplot.png" width="400"/></td>
-    <td><img src="/assets/ical-v5-boxplot.png" width="400"/></td>
-  </tr>
-</table>
+All queries require both Organization and ResourcePath for data isolation.
+
+## Performance
+
+### Streaming Results
+
+`GetAsync` returns `IAsyncEnumerable<CalendarEntry>` for efficient memory usage:
+
+```csharp
+// Results are streamed, not materialized all at once
+await foreach (var entry in engine.GetAsync(org, path, start, end, null))
+{
+    yield return Transform(entry);
+}
+```
+
+### Parallel Query Execution
+
+The engine executes independent database queries in parallel for better performance.
+
+### Indexing
+
+Both MongoDB and PostgreSQL implementations create appropriate indexes for efficient querying by organization, resource path, type, and time ranges.
+
+## Configuration Rules
+
+- **Exactly one persistence provider required**: Application fails at startup if neither or both providers are configured
+- **MongoDB**: `DatabaseName` is required, `CollectionName` is optional
+- **PostgreSQL**: Database must exist, schema is auto-created if missing
+
+## Contributing
+
+### Development Setup
+
+```bash
+git clone https://github.com/ChuckNovice/RecurringThings.git
+cd RecurringThings
+dotnet restore
+dotnet build
+```
+
+### Running Tests
+
+```bash
+# Run all unit tests
+dotnet test --filter 'Category!=Integration'
+
+# Run integration tests (requires databases)
+export MONGODB_CONNECTION_STRING="mongodb://localhost:27017"
+export POSTGRES_CONNECTION_STRING="Host=localhost;Database=test;Username=user;Password=pass"
+dotnet test --filter 'Category=Integration'
+```
+
+### Code Formatting
+
+```bash
+# Check formatting
+dotnet format --verify-no-changes
+
+# Apply formatting
+dotnet format
+```
+
+## License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
