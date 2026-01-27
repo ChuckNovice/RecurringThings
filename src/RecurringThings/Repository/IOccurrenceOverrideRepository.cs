@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RecurringThings.Domain;
+using Transactional.Abstractions;
 
 /// <summary>
 /// Repository interface for managing <see cref="OccurrenceOverride"/> entities.

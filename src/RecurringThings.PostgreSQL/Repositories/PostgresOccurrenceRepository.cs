@@ -10,6 +10,8 @@ using Npgsql;
 using NpgsqlTypes;
 using RecurringThings.Domain;
 using RecurringThings.Repository;
+using Transactional.Abstractions;
+using Transactional.PostgreSQL;
 
 /// <summary>
 /// PostgreSQL implementation of <see cref="IOccurrenceRepository"/>.
@@ -217,9 +219,9 @@ public sealed class PostgresOccurrenceRepository : IOccurrenceRepository
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
-        if (transactionContext is PostgresTransactionContext pgContext)
+        if (transactionContext is IPostgresTransactionContext pgContext)
         {
-            return new NpgsqlCommand(sql, pgContext.Connection, pgContext.Transaction);
+            return new NpgsqlCommand(sql, pgContext.Transaction.Connection, pgContext.Transaction);
         }
 
         var connection = new NpgsqlConnection(_connectionString);

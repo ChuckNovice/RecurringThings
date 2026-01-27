@@ -14,6 +14,7 @@ using RecurringThings.Domain;
 using RecurringThings.Models;
 using RecurringThings.Repository;
 using RecurringThings.Validation;
+using Transactional.Abstractions;
 
 /// <summary>
 /// Virtualizes recurring occurrences on-demand using Ical.Net and NodaTime.

@@ -11,6 +11,7 @@ using RecurringThings.Domain;
 using RecurringThings.Engine;
 using RecurringThings.Models;
 using RecurringThings.Repository;
+using Transactional.Abstractions;
 using Xunit;
 
 public class RecurrenceEngineTests
