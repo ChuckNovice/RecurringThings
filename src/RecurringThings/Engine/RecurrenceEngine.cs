@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentValidation;
 using Ical.Net;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -37,6 +38,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     private readonly IOccurrenceRepository _occurrenceRepository;
     private readonly IOccurrenceExceptionRepository _exceptionRepository;
     private readonly IOccurrenceOverrideRepository _overrideRepository;
+    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
+    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RecurrenceEngine"/> class.
@@ -45,22 +48,30 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     /// <param name="occurrenceRepository">The occurrence repository.</param>
     /// <param name="exceptionRepository">The exception repository.</param>
     /// <param name="overrideRepository">The override repository.</param>
-    /// <exception cref="ArgumentNullException">Thrown when any repository is null.</exception>
+    /// <param name="recurrenceCreateValidator">The validator for recurrence create requests.</param>
+    /// <param name="occurrenceCreateValidator">The validator for occurrence create requests.</param>
+    /// <exception cref="ArgumentNullException">Thrown when any dependency is null.</exception>
     public RecurrenceEngine(
         IRecurrenceRepository recurrenceRepository,
         IOccurrenceRepository occurrenceRepository,
         IOccurrenceExceptionRepository exceptionRepository,
-        IOccurrenceOverrideRepository overrideRepository)
+        IOccurrenceOverrideRepository overrideRepository,
+        IValidator<RecurrenceCreate> recurrenceCreateValidator,
+        IValidator<OccurrenceCreate> occurrenceCreateValidator)
     {
         ArgumentNullException.ThrowIfNull(recurrenceRepository);
         ArgumentNullException.ThrowIfNull(occurrenceRepository);
         ArgumentNullException.ThrowIfNull(exceptionRepository);
         ArgumentNullException.ThrowIfNull(overrideRepository);
+        ArgumentNullException.ThrowIfNull(recurrenceCreateValidator);
+        ArgumentNullException.ThrowIfNull(occurrenceCreateValidator);
 
         _recurrenceRepository = recurrenceRepository;
         _occurrenceRepository = occurrenceRepository;
         _exceptionRepository = exceptionRepository;
         _overrideRepository = overrideRepository;
+        _recurrenceCreateValidator = recurrenceCreateValidator;
+        _occurrenceCreateValidator = occurrenceCreateValidator;
     }
 
     /// <inheritdoc/>
@@ -198,7 +209,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         CancellationToken cancellationToken = default)
     {
         // Validate the request
-        Validator.Validate(request);
+        var validationResult = await _recurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
+        validationResult.ThrowIfInvalid();
 
         // Create the recurrence entity
         var recurrence = new Recurrence
@@ -229,7 +241,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         CancellationToken cancellationToken = default)
     {
         // Validate the request
-        Validator.Validate(request);
+        var validationResult = await _occurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
+        validationResult.ThrowIfInvalid();
 
         // Create the occurrence entity
         var occurrence = new Domain.Occurrence
@@ -476,13 +489,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        if (recurrence is null)
-        {
-            throw new KeyNotFoundException(
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Recurrence with ID '{entry.RecurrenceId}' not found.");
-        }
 
         // Validate immutable fields
         ValidateImmutableFields(entry, recurrence);
@@ -580,13 +588,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        if (occurrence is null)
-        {
-            throw new KeyNotFoundException(
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Occurrence with ID '{entry.OccurrenceId}' not found.");
-        }
 
         // Validate immutable fields
         ValidateImmutableOccurrenceFields(entry, occurrence);
@@ -649,13 +652,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        if (recurrence is null)
-        {
-            throw new KeyNotFoundException(
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Parent recurrence with ID '{recurrenceId}' not found.");
-        }
 
         // Validate immutable fields against the parent recurrence
         ValidateImmutableVirtualizedFields(entry, recurrence);
@@ -705,13 +703,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        if (@override is null)
-        {
-            throw new KeyNotFoundException(
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Override with ID '{entry.OverrideId}' not found.");
-        }
 
         // Get parent recurrence for immutability validation
         var recurrence = await _recurrenceRepository.GetByIdAsync(
@@ -719,13 +712,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        if (recurrence is null)
-        {
-            throw new KeyNotFoundException(
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Parent recurrence with ID '{@override.RecurrenceId}' not found.");
-        }
 
         // Validate immutable fields
         ValidateImmutableVirtualizedFields(entry, recurrence);

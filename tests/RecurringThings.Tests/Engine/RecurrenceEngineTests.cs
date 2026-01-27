@@ -6,11 +6,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using FluentValidation;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
 using RecurringThings.Models;
 using RecurringThings.Repository;
+using RecurringThings.Validation.Validators;
 using Transactional.Abstractions;
 using Xunit;
 
@@ -20,6 +22,8 @@ public class RecurrenceEngineTests
     private readonly Mock<IOccurrenceRepository> _occurrenceRepo;
     private readonly Mock<IOccurrenceExceptionRepository> _exceptionRepo;
     private readonly Mock<IOccurrenceOverrideRepository> _overrideRepo;
+    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
+    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
     private readonly RecurrenceEngine _engine;
 
     private const string TestOrganization = "test-org";
@@ -33,6 +37,8 @@ public class RecurrenceEngineTests
         _occurrenceRepo = new Mock<IOccurrenceRepository>();
         _exceptionRepo = new Mock<IOccurrenceExceptionRepository>();
         _overrideRepo = new Mock<IOccurrenceOverrideRepository>();
+        _recurrenceCreateValidator = new RecurrenceCreateValidator();
+        _occurrenceCreateValidator = new OccurrenceCreateValidator();
 
         // Default empty results
         SetupEmptyRepositories();
@@ -41,7 +47,9 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
     }
 
     #region Constructor Tests
@@ -53,7 +61,9 @@ public class RecurrenceEngineTests
             null!,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("recurrenceRepository");
@@ -66,7 +76,9 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             null!,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("occurrenceRepository");
@@ -79,7 +91,9 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             null!,
-            _overrideRepo.Object);
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("exceptionRepository");
@@ -92,10 +106,42 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            null!);
+            null!,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("overrideRepository");
+    }
+
+    [Fact]
+    public void Constructor_WithNullRecurrenceCreateValidator_ThrowsArgumentNullException()
+    {
+        var act = () => new RecurrenceEngine(
+            _recurrenceRepo.Object,
+            _occurrenceRepo.Object,
+            _exceptionRepo.Object,
+            _overrideRepo.Object,
+            null!,
+            _occurrenceCreateValidator);
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("recurrenceCreateValidator");
+    }
+
+    [Fact]
+    public void Constructor_WithNullOccurrenceCreateValidator_ThrowsArgumentNullException()
+    {
+        var act = () => new RecurrenceEngine(
+            _recurrenceRepo.Object,
+            _occurrenceRepo.Object,
+            _exceptionRepo.Object,
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            null!);
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("occurrenceCreateValidator");
     }
 
     #endregion
@@ -891,7 +937,7 @@ public class RecurrenceEngineTests
             .Returns(overrides.ToAsyncEnumerable());
     }
 
-    private Recurrence CreateRecurrence(
+    private static Recurrence CreateRecurrence(
         Guid id,
         DateTime startTime,
         TimeSpan duration,

@@ -5,11 +5,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using FluentValidation;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
 using RecurringThings.Models;
 using RecurringThings.Repository;
+using RecurringThings.Validation.Validators;
 using Transactional.Abstractions;
 using Xunit;
 
@@ -22,6 +24,8 @@ public class RecurrenceEngineCrudTests
     private readonly Mock<IOccurrenceRepository> _occurrenceRepo;
     private readonly Mock<IOccurrenceExceptionRepository> _exceptionRepo;
     private readonly Mock<IOccurrenceOverrideRepository> _overrideRepo;
+    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
+    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
     private readonly RecurrenceEngine _engine;
 
     private const string TestOrganization = "test-org";
@@ -35,12 +39,16 @@ public class RecurrenceEngineCrudTests
         _occurrenceRepo = new Mock<IOccurrenceRepository>();
         _exceptionRepo = new Mock<IOccurrenceExceptionRepository>();
         _overrideRepo = new Mock<IOccurrenceOverrideRepository>();
+        _recurrenceCreateValidator = new RecurrenceCreateValidator();
+        _occurrenceCreateValidator = new OccurrenceCreateValidator();
 
         _engine = new RecurrenceEngine(
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object,
+            _recurrenceCreateValidator,
+            _occurrenceCreateValidator);
     }
 
     #region CreateRecurrenceAsync Tests
@@ -98,7 +106,7 @@ public class RecurrenceEngineCrudTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("type");
+            .WithParameterName("Type");
     }
 
     [Fact]
@@ -154,7 +162,7 @@ public class RecurrenceEngineCrudTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("timeZone");
+            .WithParameterName("TimeZone");
     }
 
     [Fact]
@@ -232,7 +240,7 @@ public class RecurrenceEngineCrudTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("duration");
+            .WithParameterName("Duration");
     }
 
     [Fact]

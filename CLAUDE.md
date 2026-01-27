@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **No commercial libraries** - Do not use libraries that have become commercial or have restrictive licensing.
 4. **Convention over attributes** - Configure conventions once and reuse them rather than using attributes on multiple properties (e.g., use camelCase conventions for JSON serialization, BSON element naming for MongoDB).
 5. **Use FluentValidation** - Prefer FluentValidation for defining validation rules and validating complex objects rather than manually writing validation code in extension methods.
+6. **Internal by default** - Use `internal` visibility for classes that are implementation details and should not be exposed to library consumers. Only use `public` for types that are part of the library's public API (domain models, interfaces, engine, configuration). Examples of internal types: validators, extension methods for internal use, helper classes. Use `InternalsVisibleTo` in the csproj to allow test projects to access internal types.
 
 ## Project Overview
 

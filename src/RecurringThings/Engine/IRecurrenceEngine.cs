@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using RecurringThings.Domain;
 using RecurringThings.Models;
-using RecurringThings.Repository;
 using Transactional.Abstractions;
 
 /// <summary>

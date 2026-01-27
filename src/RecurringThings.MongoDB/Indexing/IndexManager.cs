@@ -2,7 +2,6 @@ namespace RecurringThings.MongoDB.Indexing;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using global::MongoDB.Driver;
@@ -30,7 +29,7 @@ public sealed class IndexManager
 {
     private readonly IMongoCollection<RecurringThingDocument> _collection;
     private static volatile bool _indexesEnsured;
-    private static readonly object _lock = new();
+    private static readonly Lock _lock = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IndexManager"/> class.
@@ -139,7 +138,7 @@ public sealed class IndexManager
             await _collection.Indexes.CreateManyAsync(indexModels, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (MongoCommandException ex) when (ex.Code == 85 || ex.Code == 86)
+        catch (MongoCommandException ex) when (ex.Code is 85 or 86)
         {
             // Code 85: IndexOptionsConflict - index with same name but different options
             // Code 86: IndexKeySpecsConflict - index with same key but different name
