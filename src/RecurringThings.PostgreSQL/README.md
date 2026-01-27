@@ -25,76 +25,9 @@ services.AddRecurringThings(builder =>
     }));
 ```
 
-## Schema
-
-The provider creates four tables with the following structure:
-
-### recurrences
-
-```sql
-CREATE TABLE recurrences (
-    id UUID PRIMARY KEY,
-    organization VARCHAR(100) NOT NULL,
-    resource_path VARCHAR(100) NOT NULL,
-    type VARCHAR(100) NOT NULL,
-    start_time TIMESTAMP NOT NULL,
-    duration INTERVAL NOT NULL,
-    recurrence_end_time TIMESTAMP NOT NULL,
-    rrule VARCHAR(1000) NOT NULL,
-    time_zone VARCHAR(100) NOT NULL,
-    extensions JSONB
-);
-```
-
-### occurrences
-
-```sql
-CREATE TABLE occurrences (
-    id UUID PRIMARY KEY,
-    organization VARCHAR(100) NOT NULL,
-    resource_path VARCHAR(100) NOT NULL,
-    type VARCHAR(100) NOT NULL,
-    start_time TIMESTAMP NOT NULL,
-    end_time TIMESTAMP NOT NULL,
-    duration INTERVAL NOT NULL,
-    time_zone VARCHAR(100) NOT NULL,
-    extensions JSONB
-);
-```
-
-### occurrence_exceptions
-
-```sql
-CREATE TABLE occurrence_exceptions (
-    id UUID PRIMARY KEY,
-    organization VARCHAR(100) NOT NULL,
-    resource_path VARCHAR(100) NOT NULL,
-    recurrence_id UUID NOT NULL REFERENCES recurrences(id) ON DELETE CASCADE,
-    original_time_utc TIMESTAMP NOT NULL
-);
-```
-
-### occurrence_overrides
-
-```sql
-CREATE TABLE occurrence_overrides (
-    id UUID PRIMARY KEY,
-    organization VARCHAR(100) NOT NULL,
-    resource_path VARCHAR(100) NOT NULL,
-    recurrence_id UUID NOT NULL REFERENCES recurrences(id) ON DELETE CASCADE,
-    original_time_utc TIMESTAMP NOT NULL,
-    original_duration INTERVAL NOT NULL,
-    original_extensions JSONB,
-    start_time TIMESTAMP NOT NULL,
-    end_time TIMESTAMP NOT NULL,
-    duration INTERVAL NOT NULL,
-    extensions JSONB
-);
-```
-
 ## Migrations
 
-Migrations run automatically on startup when `RunMigrationsOnStartup = true` (default). Embedded SQL migration files are applied in order.
+Migrations run automatically on startup when `RunMigrationsOnStartup = true` (default). The provider uses Entity Framework Core migrations with PostgreSQL advisory locks to ensure safe concurrent migration across multiple application replicas.
 
 To disable automatic migrations:
 
@@ -141,10 +74,6 @@ public class CalendarService(IRecurrenceEngine engine, IPostgresTransactionManag
     }
 }
 ```
-
-## Cascade Delete
-
-PostgreSQL uses `ON DELETE CASCADE` foreign key constraints. When a recurrence is deleted, all associated exceptions and overrides are automatically deleted by the database.
 
 ## Usage Examples
 

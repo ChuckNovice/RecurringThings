@@ -4,31 +4,38 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Npgsql;
-using NpgsqlTypes;
+using Microsoft.EntityFrameworkCore;
 using RecurringThings.Domain;
+using RecurringThings.PostgreSQL.Data;
+using RecurringThings.PostgreSQL.Data.Entities;
 using RecurringThings.Repository;
 using Transactional.Abstractions;
 using Transactional.PostgreSQL;
 
 /// <summary>
-/// PostgreSQL implementation of <see cref="IOccurrenceExceptionRepository"/>.
+/// PostgreSQL implementation of <see cref="IOccurrenceExceptionRepository"/> using Entity Framework Core.
 /// </summary>
-public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceExceptionRepository
+internal sealed class PostgresOccurrenceExceptionRepository : IOccurrenceExceptionRepository
 {
+    private readonly IDbContextFactory<RecurringThingsDbContext> _contextFactory;
     private readonly string _connectionString;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresOccurrenceExceptionRepository"/> class.
     /// </summary>
-    /// <param name="connectionString">The PostgreSQL connection string.</param>
+    /// <param name="contextFactory">The DbContext factory.</param>
+    /// <param name="connectionString">The PostgreSQL connection string for transaction context scenarios.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="contextFactory"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="connectionString"/> is null or empty.</exception>
-    public PostgresOccurrenceExceptionRepository(string connectionString)
+    public PostgresOccurrenceExceptionRepository(
+        IDbContextFactory<RecurringThingsDbContext> contextFactory,
+        string connectionString)
     {
+        ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        _contextFactory = contextFactory;
         _connectionString = connectionString;
     }
 
@@ -40,22 +47,12 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        const string sql = """
-            INSERT INTO occurrence_exceptions (id, organization, resource_path, recurrence_id, original_time_utc, extensions)
-            VALUES (@Id, @Organization, @ResourcePath, @RecurrenceId, @OriginalTimeUtc, @Extensions)
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        AddExceptionParameters(command, exception);
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
-        }
+        var entity = EntityMapper.ToEntity(exception);
+        context.OccurrenceExceptions.Add(entity);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return exception;
     }
@@ -68,33 +65,19 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, extensions
-            FROM occurrence_exceptions
-            WHERE id = @Id AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@Id", id);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entity = await context.OccurrenceExceptions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                e => e.Id == id &&
+                     e.Organization == organization &&
+                     e.ResourcePath == resourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        OccurrenceException? result = null;
-        if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            result = MapException(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
-        }
-
-        return result;
+        return entity is null ? null : EntityMapper.ToDomain(entity);
     }
 
     /// <inheritdoc/>
@@ -105,29 +88,19 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, extensions
-            FROM occurrence_exceptions
-            WHERE recurrence_id = @RecurrenceId AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceId", recurrenceId);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var query = context.OccurrenceExceptions
+            .AsNoTracking()
+            .Where(e =>
+                e.RecurrenceId == recurrenceId &&
+                e.Organization == organization &&
+                e.ResourcePath == resourcePath);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entity in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            yield return MapException(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            yield return EntityMapper.ToDomain(entity);
         }
     }
 
@@ -146,29 +119,19 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
             yield break;
         }
 
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, extensions
-            FROM occurrence_exceptions
-            WHERE recurrence_id = ANY(@RecurrenceIds) AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceIds", recurrenceIdList.ToArray());
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var query = context.OccurrenceExceptions
+            .AsNoTracking()
+            .Where(e =>
+                recurrenceIdList.Contains(e.RecurrenceId) &&
+                e.Organization == organization &&
+                e.ResourcePath == resourcePath);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entity in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            yield return MapException(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            yield return EntityMapper.ToDomain(entity);
         }
     }
 
@@ -180,23 +143,21 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            DELETE FROM occurrence_exceptions
-            WHERE id = @Id AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@Id", id);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entity = await context.OccurrenceExceptions
+            .FirstOrDefaultAsync(
+                e => e.Id == id &&
+                     e.Organization == organization &&
+                     e.ResourcePath == resourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
+        if (entity is not null)
         {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            context.OccurrenceExceptions.Remove(entity);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -208,71 +169,41 @@ public sealed class PostgresOccurrenceExceptionRepository : IOccurrenceException
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            DELETE FROM occurrence_exceptions
-            WHERE recurrence_id = @RecurrenceId AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceId", recurrenceId);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entities = await context.OccurrenceExceptions
+            .Where(e =>
+                e.RecurrenceId == recurrenceId &&
+                e.Organization == organization &&
+                e.ResourcePath == resourcePath)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
+        if (entities.Count > 0)
         {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            context.OccurrenceExceptions.RemoveRange(entities);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task<NpgsqlCommand> CreateCommandAsync(
-        string sql,
+    private async Task<RecurringThingsDbContext> CreateContextAsync(
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
         if (transactionContext is IPostgresTransactionContext pgContext)
         {
-            return new NpgsqlCommand(sql, pgContext.Transaction.Connection, pgContext.Transaction);
+            // Create context using the transaction's connection
+            var options = new DbContextOptionsBuilder<RecurringThingsDbContext>()
+                .UseNpgsql(pgContext.Transaction.Connection!)
+                .Options;
+            var context = new RecurringThingsDbContext(options);
+            await context.Database.UseTransactionAsync(pgContext.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+            return context;
         }
 
-        var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return new NpgsqlCommand(sql, connection);
-    }
-
-    private static void AddExceptionParameters(NpgsqlCommand command, OccurrenceException exception)
-    {
-        command.Parameters.AddWithValue("@Id", exception.Id);
-        command.Parameters.AddWithValue("@Organization", exception.Organization);
-        command.Parameters.AddWithValue("@ResourcePath", exception.ResourcePath);
-        command.Parameters.AddWithValue("@RecurrenceId", exception.RecurrenceId);
-        command.Parameters.AddWithValue("@OriginalTimeUtc", exception.OriginalTimeUtc);
-        command.Parameters.Add(new NpgsqlParameter("@Extensions", NpgsqlDbType.Jsonb)
-        {
-            Value = exception.Extensions is null
-                ? DBNull.Value
-                : JsonSerializer.Serialize(exception.Extensions)
-        });
-    }
-
-    private static OccurrenceException MapException(NpgsqlDataReader reader)
-    {
-        var extensionsJson = reader.IsDBNull(5) ? null : reader.GetString(5);
-        var extensions = extensionsJson is null
-            ? null
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(extensionsJson);
-
-        return new OccurrenceException
-        {
-            Id = reader.GetGuid(0),
-            Organization = reader.GetString(1),
-            ResourcePath = reader.GetString(2),
-            RecurrenceId = reader.GetGuid(3),
-            OriginalTimeUtc = DateTime.SpecifyKind(reader.GetDateTime(4), DateTimeKind.Utc),
-            Extensions = extensions
-        };
+        // Use factory for normal operation (pooled DbContext)
+        return await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
     }
 }
