@@ -25,12 +25,12 @@ public sealed class PostgreSqlOptions
     /// <summary>
     /// Validates the options.
     /// </summary>
-    /// <exception cref="System.ArgumentException">Thrown when required options are missing.</exception>
+    /// <exception cref="ArgumentException">Thrown when required options are missing.</exception>
     internal void Validate()
     {
         if (string.IsNullOrWhiteSpace(ConnectionString))
         {
-            throw new System.ArgumentException("PostgreSQL connection string is required.", nameof(ConnectionString));
+            throw new ArgumentException("PostgreSQL connection string is required.", nameof(ConnectionString));
         }
     }
 }

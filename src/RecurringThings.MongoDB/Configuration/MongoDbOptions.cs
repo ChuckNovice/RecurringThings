@@ -40,17 +40,17 @@ public sealed class MongoDbOptions
     /// <summary>
     /// Validates the options.
     /// </summary>
-    /// <exception cref="System.ArgumentException">Thrown when required options are missing.</exception>
+    /// <exception cref="ArgumentException">Thrown when required options are missing.</exception>
     internal void Validate()
     {
         if (string.IsNullOrWhiteSpace(ConnectionString))
         {
-            throw new System.ArgumentException("MongoDB connection string is required.", nameof(ConnectionString));
+            throw new ArgumentException("MongoDB connection string is required.", nameof(ConnectionString));
         }
 
         if (string.IsNullOrWhiteSpace(DatabaseName))
         {
-            throw new System.ArgumentException("MongoDB database name is required.", nameof(DatabaseName));
+            throw new ArgumentException("MongoDB database name is required.", nameof(DatabaseName));
         }
     }
 }
