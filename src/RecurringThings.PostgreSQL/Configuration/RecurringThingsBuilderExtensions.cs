@@ -1,9 +1,10 @@
 namespace RecurringThings.PostgreSQL.Configuration;
 
 using System;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RecurringThings.Configuration;
-using RecurringThings.PostgreSQL.Migrations;
+using RecurringThings.PostgreSQL.Data;
 using RecurringThings.PostgreSQL.Repositories;
 using RecurringThings.Repository;
 
@@ -44,25 +45,42 @@ public static class RecurringThingsBuilderExtensions
         // Mark PostgreSQL as configured
         builder.PostgreSqlConfigured = true;
 
+        // Register EF Core DbContext factory
+        builder.Services.AddDbContextFactory<RecurringThingsDbContext>(dbOptions =>
+            dbOptions.UseNpgsql(options.ConnectionString));
+
         // Run migrations if configured
         if (options.RunMigrationsOnStartup)
         {
-            var migrationEngine = new MigrationEngine(options.ConnectionString);
-            migrationEngine.EnsureDatabaseMigratedAsync().GetAwaiter().GetResult();
+            // Use advisory lock for concurrent migration safety
+            var dbOptions = new DbContextOptionsBuilder<RecurringThingsDbContext>()
+                .UseNpgsql(options.ConnectionString)
+                .Options;
+            using var context = new RecurringThingsDbContext(dbOptions);
+            var migrationService = new AdvisoryLockMigrationService(context);
+            migrationService.Migrate();
         }
 
-        // Register repositories
-        builder.Services.AddScoped<IRecurrenceRepository>(_ =>
-            new PostgresRecurrenceRepository(options.ConnectionString));
+        // Register repositories with DbContext factory
+        builder.Services.AddScoped<IRecurrenceRepository>(sp =>
+            new PostgresRecurrenceRepository(
+                sp.GetRequiredService<IDbContextFactory<RecurringThingsDbContext>>(),
+                options.ConnectionString));
 
-        builder.Services.AddScoped<IOccurrenceRepository>(_ =>
-            new PostgresOccurrenceRepository(options.ConnectionString));
+        builder.Services.AddScoped<IOccurrenceRepository>(sp =>
+            new PostgresOccurrenceRepository(
+                sp.GetRequiredService<IDbContextFactory<RecurringThingsDbContext>>(),
+                options.ConnectionString));
 
-        builder.Services.AddScoped<IOccurrenceExceptionRepository>(_ =>
-            new PostgresOccurrenceExceptionRepository(options.ConnectionString));
+        builder.Services.AddScoped<IOccurrenceExceptionRepository>(sp =>
+            new PostgresOccurrenceExceptionRepository(
+                sp.GetRequiredService<IDbContextFactory<RecurringThingsDbContext>>(),
+                options.ConnectionString));
 
-        builder.Services.AddScoped<IOccurrenceOverrideRepository>(_ =>
-            new PostgresOccurrenceOverrideRepository(options.ConnectionString));
+        builder.Services.AddScoped<IOccurrenceOverrideRepository>(sp =>
+            new PostgresOccurrenceOverrideRepository(
+                sp.GetRequiredService<IDbContextFactory<RecurringThingsDbContext>>(),
+                options.ConnectionString));
 
         return builder;
     }

@@ -5,9 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using RecurringThings.Domain;
-using RecurringThings.PostgreSQL.Migrations;
+using RecurringThings.PostgreSQL.Data;
 using RecurringThings.PostgreSQL.Repositories;
 using Xunit;
 
@@ -25,6 +27,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
     private readonly string? _baseConnectionString;
     private readonly string _testDatabaseName;
     private string? _testConnectionString;
+    private IDbContextFactory<RecurringThingsDbContext>? _contextFactory;
 
     private const string TestOrganization = "test-org";
     private const string TestResourcePath = "test/path";
@@ -59,9 +62,21 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         };
         _testConnectionString = builder.ConnectionString;
 
-        // Run migrations (use ForceMigrateAsync to bypass static cache for test isolation)
-        var migrationEngine = new MigrationEngine(_testConnectionString);
-        await migrationEngine.ForceMigrateAsync();
+        // Create DbContext factory for tests
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<RecurringThingsDbContext>(options =>
+            options.UseNpgsql(_testConnectionString));
+
+        var serviceProvider = services.BuildServiceProvider();
+        _contextFactory = serviceProvider.GetRequiredService<IDbContextFactory<RecurringThingsDbContext>>();
+
+        // Run EF Core migrations with advisory lock
+        var dbOptions = new DbContextOptionsBuilder<RecurringThingsDbContext>()
+            .UseNpgsql(_testConnectionString)
+            .Options;
+        await using var context = new RecurringThingsDbContext(dbOptions);
+        var migrationService = new AdvisoryLockMigrationService(context);
+        await migrationService.MigrateAsync();
     }
 
     public async Task DisposeAsync()
@@ -96,6 +111,26 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
             "POSTGRES_CONNECTION_STRING environment variable not set");
     }
 
+    private PostgresRecurrenceRepository CreateRecurrenceRepository()
+    {
+        return new PostgresRecurrenceRepository(_contextFactory!, _testConnectionString!);
+    }
+
+    private PostgresOccurrenceRepository CreateOccurrenceRepository()
+    {
+        return new PostgresOccurrenceRepository(_contextFactory!, _testConnectionString!);
+    }
+
+    private PostgresOccurrenceExceptionRepository CreateExceptionRepository()
+    {
+        return new PostgresOccurrenceExceptionRepository(_contextFactory!, _testConnectionString!);
+    }
+
+    private PostgresOccurrenceOverrideRepository CreateOverrideRepository()
+    {
+        return new PostgresOccurrenceOverrideRepository(_contextFactory!, _testConnectionString!);
+    }
+
     #region Recurrence Repository Tests
 
     [SkippableFact]
@@ -104,7 +139,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
 
         // Act
@@ -127,7 +162,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         await repo.CreateAsync(recurrence);
 
@@ -150,7 +185,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         await repo.CreateAsync(recurrence);
 
@@ -168,7 +203,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         await repo.CreateAsync(recurrence);
 
@@ -190,7 +225,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         await repo.CreateAsync(recurrence);
 
@@ -212,7 +247,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence1 = CreateRecurrence();
         var recurrence2 = new Recurrence
         {
@@ -253,7 +288,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresOccurrenceRepository(_testConnectionString!);
+        var repo = CreateOccurrenceRepository();
         var occurrence = CreateOccurrence();
 
         // Act
@@ -274,7 +309,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresOccurrenceRepository(_testConnectionString!);
+        var repo = CreateOccurrenceRepository();
         var occurrence = CreateOccurrence();
         await repo.CreateAsync(occurrence);
 
@@ -299,7 +334,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresOccurrenceRepository(_testConnectionString!);
+        var repo = CreateOccurrenceRepository();
         var occurrence = CreateOccurrence();
         await repo.CreateAsync(occurrence);
 
@@ -317,7 +352,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresOccurrenceRepository(_testConnectionString!);
+        var repo = CreateOccurrenceRepository();
         var occurrence = CreateOccurrence();
         await repo.CreateAsync(occurrence);
 
@@ -343,8 +378,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var exceptionRepo = new PostgresOccurrenceExceptionRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var exceptionRepo = CreateExceptionRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -368,8 +403,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var exceptionRepo = new PostgresOccurrenceExceptionRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var exceptionRepo = CreateExceptionRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -392,8 +427,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var exceptionRepo = new PostgresOccurrenceExceptionRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var exceptionRepo = CreateExceptionRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -420,8 +455,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var overrideRepo = new PostgresOccurrenceOverrideRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var overrideRepo = CreateOverrideRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -446,8 +481,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var overrideRepo = new PostgresOccurrenceOverrideRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var overrideRepo = CreateOverrideRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -473,8 +508,8 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var overrideRepo = new PostgresOccurrenceOverrideRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var overrideRepo = CreateOverrideRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -505,9 +540,9 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var recurrenceRepo = new PostgresRecurrenceRepository(_testConnectionString!);
-        var exceptionRepo = new PostgresOccurrenceExceptionRepository(_testConnectionString!);
-        var overrideRepo = new PostgresOccurrenceOverrideRepository(_testConnectionString!);
+        var recurrenceRepo = CreateRecurrenceRepository();
+        var exceptionRepo = CreateExceptionRepository();
+        var overrideRepo = CreateOverrideRepository();
 
         var recurrence = CreateRecurrence();
         await recurrenceRepo.CreateAsync(recurrence);
@@ -545,7 +580,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         recurrence.Extensions = new Dictionary<string, string>
         {
@@ -577,7 +612,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         SkipIfNoConnection();
 
         // Arrange
-        var repo = new PostgresRecurrenceRepository(_testConnectionString!);
+        var repo = CreateRecurrenceRepository();
         var recurrence = CreateRecurrence();
         recurrence.Duration = TimeSpan.FromHours(2) + TimeSpan.FromMinutes(30) + TimeSpan.FromSeconds(15);
 

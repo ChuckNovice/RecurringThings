@@ -4,31 +4,38 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Npgsql;
-using NpgsqlTypes;
+using Microsoft.EntityFrameworkCore;
 using RecurringThings.Domain;
+using RecurringThings.PostgreSQL.Data;
+using RecurringThings.PostgreSQL.Data.Entities;
 using RecurringThings.Repository;
 using Transactional.Abstractions;
 using Transactional.PostgreSQL;
 
 /// <summary>
-/// PostgreSQL implementation of <see cref="IOccurrenceOverrideRepository"/>.
+/// PostgreSQL implementation of <see cref="IOccurrenceOverrideRepository"/> using Entity Framework Core.
 /// </summary>
-public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRepository
+internal sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRepository
 {
+    private readonly IDbContextFactory<RecurringThingsDbContext> _contextFactory;
     private readonly string _connectionString;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostgresOccurrenceOverrideRepository"/> class.
     /// </summary>
-    /// <param name="connectionString">The PostgreSQL connection string.</param>
+    /// <param name="contextFactory">The DbContext factory.</param>
+    /// <param name="connectionString">The PostgreSQL connection string for transaction context scenarios.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="contextFactory"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="connectionString"/> is null or empty.</exception>
-    public PostgresOccurrenceOverrideRepository(string connectionString)
+    public PostgresOccurrenceOverrideRepository(
+        IDbContextFactory<RecurringThingsDbContext> contextFactory,
+        string connectionString)
     {
+        ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        _contextFactory = contextFactory;
         _connectionString = connectionString;
     }
 
@@ -40,22 +47,12 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
     {
         ArgumentNullException.ThrowIfNull(@override);
 
-        const string sql = """
-            INSERT INTO occurrence_overrides (id, organization, resource_path, recurrence_id, original_time_utc, start_time, end_time, duration, original_duration, original_extensions, extensions)
-            VALUES (@Id, @Organization, @ResourcePath, @RecurrenceId, @OriginalTimeUtc, @StartTime, @EndTime, @Duration, @OriginalDuration, @OriginalExtensions, @Extensions)
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        AddOverrideParameters(command, @override);
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
-        }
+        var entity = EntityMapper.ToEntity(@override);
+        context.OccurrenceOverrides.Add(entity);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return @override;
     }
@@ -68,33 +65,19 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, start_time, end_time, duration, original_duration, original_extensions, extensions
-            FROM occurrence_overrides
-            WHERE id = @Id AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@Id", id);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entity = await context.OccurrenceOverrides
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                o => o.Id == id &&
+                     o.Organization == organization &&
+                     o.ResourcePath == resourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        OccurrenceOverride? result = null;
-        if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            result = MapOverride(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
-        }
-
-        return result;
+        return entity is null ? null : EntityMapper.ToDomain(entity);
     }
 
     /// <inheritdoc/>
@@ -105,29 +88,19 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, start_time, end_time, duration, original_duration, original_extensions, extensions
-            FROM occurrence_overrides
-            WHERE recurrence_id = @RecurrenceId AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceId", recurrenceId);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var query = context.OccurrenceOverrides
+            .AsNoTracking()
+            .Where(o =>
+                o.RecurrenceId == recurrenceId &&
+                o.Organization == organization &&
+                o.ResourcePath == resourcePath);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entity in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            yield return MapOverride(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            yield return EntityMapper.ToDomain(entity);
         }
     }
 
@@ -146,29 +119,19 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
             yield break;
         }
 
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, start_time, end_time, duration, original_duration, original_extensions, extensions
-            FROM occurrence_overrides
-            WHERE recurrence_id = ANY(@RecurrenceIds) AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceIds", recurrenceIdList.ToArray());
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var query = context.OccurrenceOverrides
+            .AsNoTracking()
+            .Where(o =>
+                recurrenceIdList.Contains(o.RecurrenceId) &&
+                o.Organization == organization &&
+                o.ResourcePath == resourcePath);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entity in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            yield return MapOverride(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            yield return EntityMapper.ToDomain(entity);
         }
     }
 
@@ -189,40 +152,24 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
             yield break;
         }
 
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
+            .ConfigureAwait(false);
+
         // Override is relevant if:
         // 1. Its originalTimeUtc falls within the range (the virtualized occurrence it replaces would have been shown)
         // 2. OR its actual StartTime/EndTime overlaps with the range (the override itself should be shown)
-        const string sql = """
-            SELECT id, organization, resource_path, recurrence_id, original_time_utc, start_time, end_time, duration, original_duration, original_extensions, extensions
-            FROM occurrence_overrides
-            WHERE recurrence_id = ANY(@RecurrenceIds)
-              AND organization = @Organization
-              AND resource_path = @ResourcePath
-              AND (
-                  (original_time_utc >= @StartUtc AND original_time_utc <= @EndUtc)
-                  OR (start_time <= @EndUtc AND end_time >= @StartUtc)
-              )
-            """;
+        var query = context.OccurrenceOverrides
+            .AsNoTracking()
+            .Where(o =>
+                recurrenceIdList.Contains(o.RecurrenceId) &&
+                o.Organization == organization &&
+                o.ResourcePath == resourcePath &&
+                ((o.OriginalTimeUtc >= startUtc && o.OriginalTimeUtc <= endUtc) ||
+                 (o.StartTime <= endUtc && o.EndTime >= startUtc)));
 
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
-            .ConfigureAwait(false);
-
-        command.Parameters.AddWithValue("@RecurrenceIds", recurrenceIdList.ToArray());
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
-        command.Parameters.AddWithValue("@StartUtc", startUtc);
-        command.Parameters.AddWithValue("@EndUtc", endUtc);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var entity in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            yield return MapOverride(reader);
-        }
-
-        if (transactionContext is null)
-        {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            yield return EntityMapper.ToDomain(entity);
         }
     }
 
@@ -234,33 +181,24 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
     {
         ArgumentNullException.ThrowIfNull(@override);
 
-        const string sql = """
-            UPDATE occurrence_overrides
-            SET start_time = @StartTime, end_time = @EndTime, duration = @Duration, extensions = @Extensions
-            WHERE id = @Id AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@Id", @override.Id);
-        command.Parameters.AddWithValue("@Organization", @override.Organization);
-        command.Parameters.AddWithValue("@ResourcePath", @override.ResourcePath);
-        command.Parameters.AddWithValue("@StartTime", @override.StartTime);
-        command.Parameters.AddWithValue("@EndTime", @override.EndTime);
-        command.Parameters.AddWithValue("@Duration", @override.Duration);
-        command.Parameters.Add(new NpgsqlParameter("@Extensions", NpgsqlDbType.Jsonb)
-        {
-            Value = @override.Extensions is null
-                ? DBNull.Value
-                : JsonSerializer.Serialize(@override.Extensions)
-        });
+        var entity = await context.OccurrenceOverrides
+            .FirstOrDefaultAsync(
+                o => o.Id == @override.Id &&
+                     o.Organization == @override.Organization &&
+                     o.ResourcePath == @override.ResourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
+        if (entity is not null)
         {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            entity.StartTime = @override.StartTime;
+            entity.EndTime = @override.EndTime;
+            entity.Duration = @override.Duration;
+            entity.Extensions = @override.Extensions;
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return @override;
@@ -274,23 +212,21 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            DELETE FROM occurrence_overrides
-            WHERE id = @Id AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@Id", id);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entity = await context.OccurrenceOverrides
+            .FirstOrDefaultAsync(
+                o => o.Id == id &&
+                     o.Organization == organization &&
+                     o.ResourcePath == resourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
+        if (entity is not null)
         {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            context.OccurrenceOverrides.Remove(entity);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -302,94 +238,41 @@ public sealed class PostgresOccurrenceOverrideRepository : IOccurrenceOverrideRe
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            DELETE FROM occurrence_overrides
-            WHERE recurrence_id = @RecurrenceId AND organization = @Organization AND resource_path = @ResourcePath
-            """;
-
-        await using var command = await CreateCommandAsync(sql, transactionContext, cancellationToken)
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
             .ConfigureAwait(false);
 
-        command.Parameters.AddWithValue("@RecurrenceId", recurrenceId);
-        command.Parameters.AddWithValue("@Organization", organization);
-        command.Parameters.AddWithValue("@ResourcePath", resourcePath);
+        var entities = await context.OccurrenceOverrides
+            .Where(o =>
+                o.RecurrenceId == recurrenceId &&
+                o.Organization == organization &&
+                o.ResourcePath == resourcePath)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-        if (transactionContext is null)
+        if (entities.Count > 0)
         {
-            await command.Connection!.DisposeAsync().ConfigureAwait(false);
+            context.OccurrenceOverrides.RemoveRange(entities);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task<NpgsqlCommand> CreateCommandAsync(
-        string sql,
+    private async Task<RecurringThingsDbContext> CreateContextAsync(
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
         if (transactionContext is IPostgresTransactionContext pgContext)
         {
-            return new NpgsqlCommand(sql, pgContext.Transaction.Connection, pgContext.Transaction);
+            // Create context using the transaction's connection
+            var options = new DbContextOptionsBuilder<RecurringThingsDbContext>()
+                .UseNpgsql(pgContext.Transaction.Connection!)
+                .Options;
+            var context = new RecurringThingsDbContext(options);
+            await context.Database.UseTransactionAsync(pgContext.Transaction, cancellationToken)
+                .ConfigureAwait(false);
+            return context;
         }
 
-        var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return new NpgsqlCommand(sql, connection);
-    }
-
-    private static void AddOverrideParameters(NpgsqlCommand command, OccurrenceOverride @override)
-    {
-        command.Parameters.AddWithValue("@Id", @override.Id);
-        command.Parameters.AddWithValue("@Organization", @override.Organization);
-        command.Parameters.AddWithValue("@ResourcePath", @override.ResourcePath);
-        command.Parameters.AddWithValue("@RecurrenceId", @override.RecurrenceId);
-        command.Parameters.AddWithValue("@OriginalTimeUtc", @override.OriginalTimeUtc);
-        command.Parameters.AddWithValue("@StartTime", @override.StartTime);
-        command.Parameters.AddWithValue("@EndTime", @override.EndTime);
-        command.Parameters.AddWithValue("@Duration", @override.Duration);
-        command.Parameters.AddWithValue("@OriginalDuration", @override.OriginalDuration);
-        command.Parameters.Add(new NpgsqlParameter("@OriginalExtensions", NpgsqlDbType.Jsonb)
-        {
-            Value = @override.OriginalExtensions is null
-                ? DBNull.Value
-                : JsonSerializer.Serialize(@override.OriginalExtensions)
-        });
-        command.Parameters.Add(new NpgsqlParameter("@Extensions", NpgsqlDbType.Jsonb)
-        {
-            Value = @override.Extensions is null
-                ? DBNull.Value
-                : JsonSerializer.Serialize(@override.Extensions)
-        });
-    }
-
-    private static OccurrenceOverride MapOverride(NpgsqlDataReader reader)
-    {
-        var originalExtensionsJson = reader.IsDBNull(9) ? null : reader.GetString(9);
-        var originalExtensions = originalExtensionsJson is null
-            ? null
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(originalExtensionsJson);
-
-        var extensionsJson = reader.IsDBNull(10) ? null : reader.GetString(10);
-        var extensions = extensionsJson is null
-            ? null
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(extensionsJson);
-
-        var @override = new OccurrenceOverride
-        {
-            Id = reader.GetGuid(0),
-            Organization = reader.GetString(1),
-            ResourcePath = reader.GetString(2),
-            RecurrenceId = reader.GetGuid(3),
-            OriginalTimeUtc = DateTime.SpecifyKind(reader.GetDateTime(4), DateTimeKind.Utc),
-            OriginalDuration = reader.GetTimeSpan(8),
-            OriginalExtensions = originalExtensions,
-            Extensions = extensions
-        };
-
-        @override.Initialize(
-            DateTime.SpecifyKind(reader.GetDateTime(5), DateTimeKind.Utc),
-            reader.GetTimeSpan(7));
-
-        return @override;
+        // Use factory for normal operation (pooled DbContext)
+        return await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
     }
 }
