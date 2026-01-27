@@ -26,37 +26,6 @@ services.AddRecurringThings(builder =>
     }));
 ```
 
-## Collection Structure
-
-All entities are stored in a single collection with a `documentType` discriminator:
-
-```json
-{
-  "_id": "guid",
-  "documentType": "recurrence|occurrence|exception|override",
-  "organization": "tenant1",
-  "resourcePath": "user123/calendar",
-  "type": "meeting",
-  "startTime": ISODate("2025-01-06T14:00:00Z"),
-  "endTime": ISODate("2025-01-06T15:00:00Z"),
-  "duration": "01:00:00",
-  "timeZone": "America/New_York",
-  "extensions": { "title": "Weekly Standup" },
-
-  // Recurrence-specific
-  "rrule": "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z",
-  "recurrenceEndTime": ISODate("2025-12-31T23:59:59Z"),
-
-  // Exception/Override-specific
-  "recurrenceId": "guid",
-  "originalTimeUtc": ISODate("2025-01-13T14:00:00Z"),
-
-  // Override-specific (denormalized original values)
-  "originalDuration": "01:00:00",
-  "originalExtensions": { "title": "Weekly Standup" }
-}
-```
-
 ## Indexes
 
 The provider automatically creates indexes for efficient querying:

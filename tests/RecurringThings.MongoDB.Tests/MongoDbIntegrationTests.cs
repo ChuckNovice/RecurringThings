@@ -38,7 +38,7 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         _connectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING");
         // MongoDB database name limit is 63 characters
         // Format: rt_test_yyyyMMddHHmmss_<8 chars of guid> = 8 + 14 + 1 + 8 = 31 chars
-        _databaseName = $"rt_test_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}".Substring(0, 40);
+        _databaseName = $"rt_test_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}"[..40];
     }
 
     public async Task InitializeAsync()

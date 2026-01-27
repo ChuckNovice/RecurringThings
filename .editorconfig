@@ -1,4 +1,7 @@
+root = true
+
 [*.cs]
+
 # File-scoped namespaces
 csharp_style_namespace_declarations = file_scoped:warning
 
@@ -11,7 +14,7 @@ dotnet_style_prefer_collection_expression = when_types_match:suggestion
 # Name simplification (auto-fix "Name can be simplified")
 dotnet_diagnostic.IDE0001.severity = warning
 dotnet_diagnostic.IDE0002.severity = warning
-dotnet_diagnostic.IDE0005.severity = silent
+dotnet_diagnostic.IDE0005.severity = warning
 dotnet_style_qualification_for_field = false:warning
 dotnet_style_qualification_for_property = false:warning
 dotnet_style_qualification_for_method = false:warning
