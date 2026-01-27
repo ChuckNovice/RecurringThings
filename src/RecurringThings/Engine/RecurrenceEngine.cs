@@ -231,9 +231,11 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         var validationResult = await _recurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
         validationResult.ThrowIfInvalid();
 
-        // Convert input times to UTC if they're local
+        // Convert input time to UTC if it's local
         var startTimeUtc = ConvertToUtc(request.StartTime, request.TimeZone);
-        var recurrenceEndTimeUtc = ConvertToUtc(request.RecurrenceEndTime, request.TimeZone);
+
+        // Extract RecurrenceEndTime from RRule UNTIL clause
+        var recurrenceEndTimeUtc = ExtractUntilFromRRule(request.RRule);
 
         // Create the recurrence entity
         var recurrence = new Recurrence
@@ -553,8 +555,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             RecurrenceId = updated.Id,
             RecurrenceDetails = new RecurrenceDetails
             {
-                RRule = updated.RRule,
-                RecurrenceEndTime = updated.RecurrenceEndTime
+                RRule = updated.RRule
             }
         };
     }
@@ -594,19 +595,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
                 "Cannot modify StartTime on a recurrence. This field is immutable after creation.");
         }
 
-        // Only validate RRule and RecurrenceEndTime if RecurrenceDetails is provided
+        // Only validate RRule if RecurrenceDetails is provided
         if (entry.RecurrenceDetails is not null)
         {
             if (entry.RecurrenceDetails.RRule != existing.RRule)
             {
                 throw new InvalidOperationException(
                     "Cannot modify RRule. This field is immutable after creation.");
-            }
-
-            if (entry.RecurrenceDetails.RecurrenceEndTime != existing.RecurrenceEndTime)
-            {
-                throw new InvalidOperationException(
-                    "Cannot modify RecurrenceEndTime. This field is immutable after creation.");
             }
         }
     }
@@ -980,6 +975,25 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.ResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Extracts the UNTIL value from an RRule string and returns it as a UTC DateTime.
+    /// </summary>
+    /// <param name="rrule">The RRule string containing an UNTIL clause.</param>
+    /// <returns>The UNTIL value as a UTC DateTime.</returns>
+    /// <exception cref="ArgumentException">Thrown when the RRule does not contain a valid UNTIL clause.</exception>
+    private static DateTime ExtractUntilFromRRule(string rrule)
+    {
+        var pattern = new RecurrencePattern(rrule);
+
+        if (pattern.Until is null)
+        {
+            throw new ArgumentException("RRule must contain UNTIL clause.", nameof(rrule));
+        }
+
+        // Ical.Net parses UNTIL as UTC when the Z suffix is present
+        return DateTime.SpecifyKind(pattern.Until.Value, DateTimeKind.Utc);
     }
 
     /// <summary>

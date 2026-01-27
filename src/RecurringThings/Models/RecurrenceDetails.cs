@@ -1,7 +1,5 @@
 namespace RecurringThings.Models;
 
-using System;
-
 /// <summary>
 /// Contains recurrence-specific details when a <see cref="CalendarEntry"/> represents a recurrence pattern.
 /// </summary>
@@ -12,18 +10,11 @@ using System;
 public sealed class RecurrenceDetails
 {
     /// <summary>
-    /// Gets or sets the UTC timestamp when the recurrence series ends.
-    /// </summary>
-    /// <remarks>
-    /// Matches the UNTIL value in the RRule.
-    /// </remarks>
-    public DateTime RecurrenceEndTime { get; set; }
-
-    /// <summary>
     /// Gets or sets the RFC 5545 recurrence rule defining the pattern.
     /// </summary>
     /// <remarks>
-    /// Example: "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z"
+    /// <para>Example: "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z"</para>
+    /// <para>The recurrence end time can be extracted by parsing the UNTIL clause from this RRule.</para>
     /// </remarks>
     public required string RRule { get; set; }
 }

@@ -79,7 +79,8 @@ public class RecurrenceEngineCrudTests
         result.Type.Should().Be(request.Type);
         result.StartTime.Should().Be(request.StartTime);
         result.Duration.Should().Be(request.Duration);
-        result.RecurrenceEndTime.Should().Be(request.RecurrenceEndTime);
+        // RecurrenceEndTime is extracted from RRule UNTIL clause
+        result.RecurrenceEndTime.Should().Be(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc));
         result.RRule.Should().Be(request.RRule);
         result.TimeZone.Should().Be(request.TimeZone);
         result.Extensions.Should().BeEquivalentTo(request.Extensions);
@@ -934,7 +935,6 @@ public class RecurrenceEngineCrudTests
             Type = type ?? TestType,
             StartTime = new DateTime(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = rrule ?? "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
             TimeZone = timeZone ?? TestTimeZone,
             Extensions = new Dictionary<string, string> { ["key"] = "value" }
