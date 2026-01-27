@@ -28,7 +28,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -51,7 +50,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York",
             Extensions = new Dictionary<string, string>
@@ -83,7 +81,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -106,7 +103,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -129,7 +125,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -157,7 +152,6 @@ public class RecurrenceCreateValidatorTests
             Type = null!,
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -180,7 +174,6 @@ public class RecurrenceCreateValidatorTests
             Type = "",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -207,7 +200,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "Eastern Standard Time" // Windows time zone, not IANA
         };
@@ -235,7 +227,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;COUNT=10",
             TimeZone = "America/New_York"
         };
@@ -259,7 +250,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;BYDAY=MO,TU,WE",
             TimeZone = "America/New_York"
         };
@@ -283,31 +273,7 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959", // Missing Z
-            TimeZone = "America/New_York"
-        };
-
-        // Act
-        var result = _validator.TestValidate(request);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.RRule);
-    }
-
-    [Fact]
-    public void Validate_WhenRRuleUntilMismatchesEndTime_ShouldHaveError()
-    {
-        // Arrange
-        var request = new RecurrenceCreate
-        {
-            Organization = "org",
-            ResourcePath = "path",
-            Type = "appointment",
-            StartTime = DateTime.UtcNow,
-            Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
-            RRule = "FREQ=DAILY;UNTIL=20251231T235959Z", // Different year
             TimeZone = "America/New_York"
         };
 
@@ -333,7 +299,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -356,7 +321,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.Now, // Local time
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -379,7 +343,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = new DateTime(2025, 6, 1, 9, 0, 0, DateTimeKind.Unspecified),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -407,7 +370,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.Zero,
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York"
         };
@@ -435,7 +397,6 @@ public class RecurrenceCreateValidatorTests
             Type = "appointment",
             StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTime = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=DAILY;UNTIL=20261231T235959Z",
             TimeZone = "America/New_York",
             Extensions = new Dictionary<string, string>

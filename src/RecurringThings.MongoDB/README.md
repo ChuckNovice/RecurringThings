@@ -74,14 +74,14 @@ public class CalendarService(IRecurrenceEngine engine)
 {
     public async Task CreateWeeklyMeetingAsync()
     {
+        // RecurrenceEndTime is automatically extracted from the RRule UNTIL clause
         var recurrence = await engine.CreateRecurrenceAsync(new RecurrenceCreate
         {
             Organization = "tenant1",
             ResourcePath = "user123/calendar",
             Type = "meeting",
-            StartTimeUtc = new DateTime(2025, 1, 6, 14, 0, 0, DateTimeKind.Utc),
+            StartTime = new DateTime(2025, 1, 6, 14, 0, 0, DateTimeKind.Utc), // Or DateTime.Now for local time
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTimeUtc = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z",
             TimeZone = "America/New_York",
             Extensions = new Dictionary<string, string>
@@ -164,6 +164,6 @@ dotnet test --filter 'Category=Integration'
 ## Limitations
 
 - MongoDB transactions require replica set (not available on standalone instances)
-- All DateTime values must be UTC
+- DateTime values can be UTC or Local (`DateTimeKind.Unspecified` is not allowed)
 - RRule must use UNTIL (COUNT is not supported)
 - UNTIL must have UTC suffix (Z)

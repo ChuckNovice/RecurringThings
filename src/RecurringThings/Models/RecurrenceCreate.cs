@@ -9,7 +9,8 @@ using System.Collections.Generic;
 /// <remarks>
 /// <para>DateTime values can be provided in UTC or Local time (Unspecified is not allowed).
 /// Local times are converted to UTC internally using the specified <see cref="TimeZone"/>.</para>
-/// <para>The RRule UNTIL value must be in UTC (Z suffix) and must match <see cref="RecurrenceEndTime"/> when converted to UTC.</para>
+/// <para>The RRule UNTIL value must be in UTC (Z suffix). The recurrence end time is automatically
+/// extracted from the RRule UNTIL clause.</para>
 /// </remarks>
 public sealed class RecurrenceCreate
 {
@@ -59,21 +60,11 @@ public sealed class RecurrenceCreate
     public required TimeSpan Duration { get; init; }
 
     /// <summary>
-    /// Gets the timestamp when the recurrence series ends.
-    /// </summary>
-    /// <remarks>
-    /// Can be provided in UTC or Local time (Unspecified is not allowed).
-    /// Local times are converted to UTC internally using <see cref="TimeZone"/>.
-    /// Must match the UNTIL value in <see cref="RRule"/> when converted to UTC.
-    /// Used for efficient query filtering without full virtualization.
-    /// </remarks>
-    public required DateTime RecurrenceEndTime { get; init; }
-
-    /// <summary>
     /// Gets the RFC 5545 recurrence rule defining the pattern.
     /// </summary>
     /// <remarks>
     /// <para>Must use UNTIL (in UTC with Z suffix); COUNT is not supported.</para>
+    /// <para>The recurrence end time is automatically extracted from the UNTIL clause.</para>
     /// <para>Maximum length is 2000 characters.</para>
     /// <para>Example: "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z"</para>
     /// </remarks>

@@ -88,7 +88,6 @@ public interface IRecurrenceEngine
     ///     Type = "appointment",
     ///     StartTime = DateTime.UtcNow, // Or DateTime.Now for local time
     ///     Duration = TimeSpan.FromHours(1),
-    ///     RecurrenceEndTime = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
     ///     RRule = "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
     ///     TimeZone = "America/New_York"
     /// });
@@ -164,7 +163,7 @@ public interface IRecurrenceEngine
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="entry"/> is null.</exception>
     /// <exception cref="InvalidOperationException">
     /// Thrown when attempting to modify immutable fields (Organization, ResourcePath, Type, TimeZone,
-    /// or recurrence-specific fields like RRule, StartTime, RecurrenceEndTime).
+    /// or recurrence-specific fields like RRule and StartTime).
     /// </exception>
     /// <exception cref="KeyNotFoundException">
     /// Thrown when the underlying entity (recurrence, occurrence, or override) is not found.
