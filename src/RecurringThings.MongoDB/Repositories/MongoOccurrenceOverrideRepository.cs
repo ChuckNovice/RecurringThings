@@ -9,6 +9,8 @@ using global::MongoDB.Driver;
 using RecurringThings.Domain;
 using RecurringThings.MongoDB.Documents;
 using RecurringThings.Repository;
+using Transactional.Abstractions;
+using Transactional.MongoDB;
 
 /// <summary>
 /// MongoDB implementation of <see cref="IOccurrenceOverrideRepository"/>.
@@ -324,7 +326,7 @@ public sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRepos
 
     private static IClientSessionHandle? GetSession(ITransactionContext? transactionContext)
     {
-        return transactionContext is MongoTransactionContext mongoContext
+        return transactionContext is IMongoTransactionContext mongoContext
             ? mongoContext.Session
             : null;
     }

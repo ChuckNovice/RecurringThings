@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using RecurringThings.Domain;
 using RecurringThings.Models;
 using RecurringThings.Repository;
+using Transactional.Abstractions;
 
 /// <summary>
 /// Defines the contract for the recurrence virtualization engine.

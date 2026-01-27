@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Critical Rules
+
+1. **Documentation must stay current** - All code changes must be reflected in both XML documentation and README files. Stale documentation is unacceptable.
+2. **Run `dotnet format` before every commit** - Code formatting must be verified before committing.
+3. **No commercial libraries** - Do not use libraries that have become commercial or have restrictive licensing.
+4. **Convention over attributes** - Configure conventions once and reuse them rather than using attributes on multiple properties (e.g., use camelCase conventions for JSON serialization, BSON element naming for MongoDB).
+5. **Use FluentValidation** - Prefer FluentValidation for defining validation rules and validating complex objects rather than manually writing validation code in extension methods.
+
 ## Project Overview
 
 RecurringThings is a .NET 10 library for managing recurring events with on-demand virtualization. It provides three NuGet packages:
@@ -24,7 +32,7 @@ dotnet test --filter 'Category!=Integration'
 # Run a single test
 dotnet test --filter "FullyQualifiedName~TestClassName.TestMethodName"
 
-# Check code formatting
+# Check code formatting (run before every commit!)
 dotnet format --verify-no-changes
 
 # Apply code formatting
@@ -33,6 +41,13 @@ dotnet format
 # Pack NuGet packages
 dotnet pack -c Release
 ```
+
+### Pre-Commit Checklist
+1. Run `dotnet format` to fix formatting
+2. Run `dotnet build` to verify compilation
+3. Run `dotnet test` to verify all tests pass
+4. Update XML documentation for any changed public APIs
+5. Update README.md if functionality changed
 
 ## Architecture
 
@@ -52,9 +67,15 @@ dotnet pack -c Release
 6. Merge with standalone occurrences
 
 ### Key Dependencies
-- **NodaTime** - Timezone handling
-- **Ical.Net** - RRule parsing
-- **Transactional** library - Transaction context abstractions
+- **NodaTime** ([https://github.com/nodatime/nodatime](https://github.com/nodatime/nodatime)) - Timezone handling with IANA timezone support
+- **Ical.Net** ([https://github.com/rianjs/ical.net](https://github.com/rianjs/ical.net)) - RFC 5545 RRule parsing and evaluation
+- **Transactional** ([https://github.com/ChuckNovice/transactional](https://github.com/ChuckNovice/transactional)) - Transaction context abstractions for repository pattern
+- **FluentValidation** ([https://github.com/FluentValidation/FluentValidation](https://github.com/FluentValidation/FluentValidation)) - Validation rules for complex objects (preferred over manual validation)
+- **MongoDB.Driver** ([https://github.com/mongodb/mongo-csharp-driver](https://github.com/mongodb/mongo-csharp-driver)) - MongoDB persistence
+- **Entity Framework Core** ([https://github.com/dotnet/efcore](https://github.com/dotnet/efcore)) - PostgreSQL persistence (preferred over raw Npgsql)
+- **xUnit** ([https://github.com/xunit/xunit](https://github.com/xunit/xunit)) - Testing framework
+- **Moq** ([https://github.com/devlooped/moq](https://github.com/devlooped/moq)) - Mocking framework for tests
+- Use built-in `Assert` from xUnit for assertions (do NOT use FluentAssertions - it became commercial)
 
 ## Code Conventions
 
@@ -76,11 +97,16 @@ Overrides: `StartTime`, `Duration`, and `Extensions` are mutable (EndTime recomp
 - Prefer primary constructors
 - Write XML documentation (`<summary>`, `<param>`, `<returns>`, `<exception>`) on all public classes, methods, and properties
 
+### Serialization Conventions
+- Configure naming conventions globally (e.g., camelCase for JSON) rather than using attributes on each property
+- For MongoDB: Use conventions or class maps instead of `[BsonElement]` attributes
+- For JSON: Use `JsonSerializerOptions` with `PropertyNamingPolicy` instead of `[JsonPropertyName]` attributes
+
 ### Testing
-- Framework: xUnit
-- Mocking: Moq
 - Target: 90%+ coverage
 - Integration tests require `MONGODB_CONNECTION_STRING` and `POSTGRES_CONNECTION_STRING` environment variables
+- Use xUnit with built-in `Assert` class for assertions
+- Use Moq for mocking (see Key Dependencies for links)
 
 ## Multi-Tenancy
 All entities require:
