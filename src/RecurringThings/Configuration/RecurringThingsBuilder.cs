@@ -1,7 +1,6 @@
 namespace RecurringThings.Configuration;
 
 using System;
-using System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -30,20 +29,12 @@ public sealed class RecurringThingsBuilder
     /// <summary>
     /// Gets or sets a value indicating whether MongoDB has been configured.
     /// </summary>
-    /// <remarks>
-    /// This property is intended for internal use by provider packages only.
-    /// </remarks>
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool MongoDbConfigured { get; set; }
+    internal bool MongoDbConfigured { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether PostgreSQL has been configured.
     /// </summary>
-    /// <remarks>
-    /// This property is intended for internal use by provider packages only.
-    /// </remarks>
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool PostgreSqlConfigured { get; set; }
+    internal bool PostgreSqlConfigured { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RecurringThingsBuilder"/> class.

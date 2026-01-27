@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RecurringThings.Tests" />
+    <InternalsVisibleTo Include="RecurringThings.MongoDB" />
+    <InternalsVisibleTo Include="RecurringThings.PostgreSQL" />
   </ItemGroup>
 
   <ItemGroup>

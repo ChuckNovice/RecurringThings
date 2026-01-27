@@ -25,6 +25,36 @@ dotnet add package RecurringThings.MongoDB
 dotnet add package RecurringThings.PostgreSQL
 ```
 
+## Setup
+
+Register RecurringThings in your `Program.cs` or `Startup.cs`:
+
+```csharp
+// Using MongoDB
+services.AddRecurringThings(builder =>
+    builder.UseMongoDb(options =>
+    {
+        options.ConnectionString = "mongodb://localhost:27017";
+        options.DatabaseName = "myapp";
+    }));
+
+// Or using PostgreSQL
+services.AddRecurringThings(builder =>
+    builder.UsePostgreSql(options =>
+    {
+        options.ConnectionString = "Host=localhost;Database=myapp;Username=user;Password=pass";
+    }));
+```
+
+Then inject `IRecurrenceEngine` wherever you need it:
+
+```csharp
+public class CalendarService(IRecurrenceEngine engine)
+{
+    public async Task CreateMeetingAsync() { /* use engine */ }
+}
+```
+
 ## Quick Example
 
 ```csharp

@@ -64,8 +64,10 @@ public static class ServiceCollectionExtensions
         // Validate that exactly one provider has been configured
         builder.Validate();
 
-        // Register FluentValidation validators from the assembly
-        services.AddValidatorsFromAssemblyContaining<RecurrenceCreateValidator>(ServiceLifetime.Scoped);
+        // Register FluentValidation validators from the assembly (including internal validators)
+        services.AddValidatorsFromAssemblyContaining<RecurrenceCreateValidator>(
+            ServiceLifetime.Scoped,
+            includeInternalTypes: true);
 
         // Register the recurrence engine as scoped
         // The repositories are registered by the provider-specific UseMongoDb/UsePostgreSql methods
