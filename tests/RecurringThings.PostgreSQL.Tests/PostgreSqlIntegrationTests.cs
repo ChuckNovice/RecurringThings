@@ -63,7 +63,7 @@ public class PostgreSqlIntegrationTests : IAsyncLifetime
         _testConnectionString = builder.ConnectionString;
 
         // Create DbContext factory for tests
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        var services = new ServiceCollection();
         services.AddDbContextFactory<RecurringThingsDbContext>(options =>
             options.UseNpgsql(_testConnectionString));
 
