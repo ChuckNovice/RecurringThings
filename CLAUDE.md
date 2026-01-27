@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Critical Rules
 
-1. **Documentation must stay current** - All code changes must be reflected in both XML documentation and README files. Stale documentation is unacceptable.
+1. **Documentation must stay current** - All code changes must be reflected in both XML documentation and the appropriate README file (see "Project Structure and Documentation" section). Stale documentation is unacceptable.
 2. **Run `dotnet format` before every commit** - Code formatting must be verified before committing.
 3. **No commercial libraries** - Do not use libraries that have become commercial or have restrictive licensing.
 4. **Convention over attributes** - Configure conventions once and reuse them rather than using attributes on multiple properties (e.g., use camelCase conventions for JSON serialization, BSON element naming for MongoDB).
@@ -16,6 +16,40 @@ RecurringThings is a .NET 10 library for managing recurring events with on-deman
 - **RecurringThings** (core) - Virtualization engine and abstractions
 - **RecurringThings.MongoDB** - MongoDB persistence
 - **RecurringThings.PostgreSQL** - PostgreSQL persistence
+
+## Project Structure and Documentation
+
+**IMPORTANT:** The three projects in this repository should be treated as **completely separate packages**, even though they share a repository and are published together.
+
+### Separate Project Principle
+- **RecurringThings** (core) - Database-agnostic engine with repository abstractions
+- **RecurringThings.MongoDB** - Standalone MongoDB implementation (depends on core)
+- **RecurringThings.PostgreSQL** - Standalone PostgreSQL implementation (depends on core)
+
+Each database provider is independent and users typically install only one alongside the core package.
+
+### Documentation Structure
+Each project has its own README file:
+
+| Project | README Location | Content Focus |
+|---------|-----------------|---------------|
+| Core | `README.md` (repository root) | Engine features, domain model, virtualization concepts, supported databases (with links to provider READMEs) |
+| MongoDB | `src/RecurringThings.MongoDB/README.md` | MongoDB-specific setup, configuration, schema, indexes, transactions |
+| PostgreSQL | `src/RecurringThings.PostgreSQL/README.md` | PostgreSQL-specific setup, configuration, schema, migrations, transactions |
+
+### Documentation Rules
+1. **Main README** (`README.md`) should:
+   - Focus on core engine capabilities and concepts
+   - Explain the virtualization flow and domain model
+   - List supported databases with links to their respective README files
+   - NOT contain database-specific configuration or setup details
+
+2. **Provider READMEs** should:
+   - Be self-contained documentation for that provider
+   - Include installation, configuration, and usage examples
+   - Document schema/collection structure
+   - Explain provider-specific transaction handling
+   - Include any provider-specific limitations or considerations
 
 ## Build and Test Commands
 
@@ -47,7 +81,10 @@ dotnet pack -c Release
 2. Run `dotnet build` to verify compilation
 3. Run `dotnet test` to verify all tests pass
 4. Update XML documentation for any changed public APIs
-5. Update README.md if functionality changed
+5. Update the appropriate README file(s) if functionality changed:
+   - Core engine changes → `README.md`
+   - MongoDB changes → `src/RecurringThings.MongoDB/README.md`
+   - PostgreSQL changes → `src/RecurringThings.PostgreSQL/README.md`
 
 ## Architecture
 
