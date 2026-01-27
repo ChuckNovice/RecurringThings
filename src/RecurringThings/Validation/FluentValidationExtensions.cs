@@ -13,17 +13,35 @@ using NodaTime;
 internal static class FluentValidationExtensions
 {
     /// <summary>
-    /// Validates that a DateTime has Kind == Utc.
+    /// Validates that a DateTime has Kind != Unspecified (accepts Utc or Local).
     /// </summary>
     /// <typeparam name="T">The type being validated.</typeparam>
     /// <param name="ruleBuilder">The rule builder.</param>
     /// <returns>Rule builder options for chaining.</returns>
+    public static IRuleBuilderOptions<T, DateTime> MustNotBeUnspecified<T>(
+        this IRuleBuilder<T, DateTime> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(dt => dt.Kind != DateTimeKind.Unspecified)
+            .WithMessage("{PropertyName} must have a specified Kind (Utc or Local). DateTimeKind.Unspecified is not allowed.");
+    }
+
+    /// <summary>
+    /// Validates that a DateTime is in UTC.
+    /// </summary>
+    /// <typeparam name="T">The type being validated.</typeparam>
+    /// <param name="ruleBuilder">The rule builder.</param>
+    /// <returns>Rule builder options for chaining.</returns>
+    /// <remarks>
+    /// This is used for internal domain entities that must store times in UTC.
+    /// For user-facing input, use <see cref="MustNotBeUnspecified{T}"/> instead.
+    /// </remarks>
     public static IRuleBuilderOptions<T, DateTime> MustBeUtc<T>(
         this IRuleBuilder<T, DateTime> ruleBuilder)
     {
         return ruleBuilder
             .Must(dt => dt.Kind == DateTimeKind.Utc)
-            .WithMessage("{PropertyName} must be in UTC (Kind must be DateTimeKind.Utc). Actual Kind: {PropertyValue}.");
+            .WithMessage("{PropertyName} must be in UTC (DateTimeKind.Utc).");
     }
 
     /// <summary>

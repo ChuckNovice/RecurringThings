@@ -29,7 +29,7 @@ public class RecurrenceEngineTests
     private const string TestOrganization = "test-org";
     private const string TestResourcePath = "test/path";
     private const string TestType = "appointment";
-    private const string TestTimeZone = "America/New_York";
+    private const string TestTimeZone = "Etc/UTC";
 
     public RecurrenceEngineTests()
     {
@@ -689,7 +689,7 @@ public class RecurrenceEngineTests
     {
         // Arrange
         var recurrenceId = Guid.NewGuid();
-        var startTime = new DateTime(2024, 1, 1, 23, 59, 59, DateTimeKind.Utc);
+        var startTime = new DateTime(2024, 1, 1, 23, 59, 0, DateTimeKind.Utc); // 23:59:00, not 23:59:59
         var duration = TimeSpan.FromMinutes(1);
 
         var recurrence = CreateRecurrence(
@@ -709,6 +709,7 @@ public class RecurrenceEngineTests
 
         // Assert
         results.Should().HaveCount(1);
+        results[0].StartTime.Should().Be(startTime); // Occurrence at 23:59:00 is within the query range
     }
 
     [Fact]
@@ -962,16 +963,16 @@ public class RecurrenceEngineTests
     }
 
     private async Task<List<CalendarEntry>> GetResultsAsync(
-        DateTime startUtc,
-        DateTime endUtc,
+        DateTime start,
+        DateTime end,
         string[]? types = null)
     {
         var results = new List<CalendarEntry>();
         await foreach (var entry in _engine.GetAsync(
             TestOrganization,
             TestResourcePath,
-            startUtc,
-            endUtc,
+            start,
+            end,
             types))
         {
             results.Add(entry);

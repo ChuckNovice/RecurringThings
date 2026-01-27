@@ -18,7 +18,12 @@
     <Description>PostgreSQL persistence provider for RecurringThings library.</Description>
     <RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RecurringThings\RecurringThings.csproj" />

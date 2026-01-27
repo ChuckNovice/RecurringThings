@@ -24,7 +24,7 @@ public class OccurrenceCreateValidatorTests
             Organization = "org",
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Europe/London"
         };
@@ -45,7 +45,7 @@ public class OccurrenceCreateValidatorTests
             Organization = null!,
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Europe/London"
         };
@@ -66,7 +66,7 @@ public class OccurrenceCreateValidatorTests
             Organization = "org",
             ResourcePath = "path",
             Type = "",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Europe/London"
         };
@@ -87,7 +87,7 @@ public class OccurrenceCreateValidatorTests
             Organization = "org",
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Invalid/TimeZone"
         };
@@ -101,15 +101,15 @@ public class OccurrenceCreateValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenStartTimeUtcNotUtc_ShouldHaveError()
+    public void Validate_WhenStartTimeLocal_ShouldNotHaveError()
     {
-        // Arrange
+        // Arrange - Local time is now accepted and converted to UTC internally
         var request = new OccurrenceCreate
         {
             Organization = "org",
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.Now,
+            StartTime = DateTime.Now,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Europe/London"
         };
@@ -118,8 +118,29 @@ public class OccurrenceCreateValidatorTests
         var result = _validator.TestValidate(request);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.StartTimeUtc);
-        result.Errors.Should().Contain(e => e.PropertyName == "StartTimeUtc" && e.ErrorMessage.Contains("must be in UTC"));
+        result.ShouldNotHaveValidationErrorFor(x => x.StartTime);
+    }
+
+    [Fact]
+    public void Validate_WhenStartTimeUnspecified_ShouldHaveError()
+    {
+        // Arrange
+        var request = new OccurrenceCreate
+        {
+            Organization = "org",
+            ResourcePath = "path",
+            Type = "meeting",
+            StartTime = new DateTime(2025, 6, 1, 9, 0, 0, DateTimeKind.Unspecified),
+            Duration = TimeSpan.FromHours(1),
+            TimeZone = "Europe/London"
+        };
+
+        // Act
+        var result = _validator.TestValidate(request);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.StartTime);
+        result.Errors.Should().Contain(e => e.PropertyName == "StartTime" && e.ErrorMessage.Contains("Unspecified"));
     }
 
     [Fact]
@@ -131,7 +152,7 @@ public class OccurrenceCreateValidatorTests
             Organization = "org",
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.Zero,
             TimeZone = "Europe/London"
         };
@@ -153,7 +174,7 @@ public class OccurrenceCreateValidatorTests
             Organization = "org",
             ResourcePath = "path",
             Type = "meeting",
-            StartTimeUtc = DateTime.UtcNow,
+            StartTime = DateTime.UtcNow,
             Duration = TimeSpan.FromHours(1),
             TimeZone = "Europe/London",
             Extensions = new Dictionary<string, string>

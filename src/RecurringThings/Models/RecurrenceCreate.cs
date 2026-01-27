@@ -7,8 +7,9 @@ using System.Collections.Generic;
 /// Request model for creating a new recurrence pattern.
 /// </summary>
 /// <remarks>
-/// <para>All DateTime values must be provided in UTC.</para>
-/// <para>The RRule UNTIL value must be in UTC (Z suffix) and must match <see cref="RecurrenceEndTimeUtc"/>.</para>
+/// <para>DateTime values can be provided in UTC or Local time (Unspecified is not allowed).
+/// Local times are converted to UTC internally using the specified <see cref="TimeZone"/>.</para>
+/// <para>The RRule UNTIL value must be in UTC (Z suffix) and must match <see cref="RecurrenceEndTime"/> when converted to UTC.</para>
 /// </remarks>
 public sealed class RecurrenceCreate
 {
@@ -39,13 +40,15 @@ public sealed class RecurrenceCreate
     public required string Type { get; init; }
 
     /// <summary>
-    /// Gets the UTC timestamp representing the time-of-day that occurrences start.
+    /// Gets the timestamp representing the time-of-day that occurrences start.
     /// </summary>
     /// <remarks>
-    /// Must be provided in UTC. During virtualization, this is converted to local time
+    /// Can be provided in UTC or Local time (Unspecified is not allowed).
+    /// Local times are converted to UTC internally using <see cref="TimeZone"/>.
+    /// During virtualization, the stored UTC time is converted to local time
     /// using <see cref="TimeZone"/> before applying the RRule.
     /// </remarks>
-    public required DateTime StartTimeUtc { get; init; }
+    public required DateTime StartTime { get; init; }
 
     /// <summary>
     /// Gets the duration of each occurrence.
@@ -56,13 +59,15 @@ public sealed class RecurrenceCreate
     public required TimeSpan Duration { get; init; }
 
     /// <summary>
-    /// Gets the UTC timestamp when the recurrence series ends.
+    /// Gets the timestamp when the recurrence series ends.
     /// </summary>
     /// <remarks>
-    /// Must match the UNTIL value in <see cref="RRule"/>.
+    /// Can be provided in UTC or Local time (Unspecified is not allowed).
+    /// Local times are converted to UTC internally using <see cref="TimeZone"/>.
+    /// Must match the UNTIL value in <see cref="RRule"/> when converted to UTC.
     /// Used for efficient query filtering without full virtualization.
     /// </remarks>
-    public required DateTime RecurrenceEndTimeUtc { get; init; }
+    public required DateTime RecurrenceEndTime { get; init; }
 
     /// <summary>
     /// Gets the RFC 5545 recurrence rule defining the pattern.

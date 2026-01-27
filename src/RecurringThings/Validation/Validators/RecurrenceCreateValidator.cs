@@ -3,6 +3,7 @@ namespace RecurringThings.Validation.Validators;
 using System;
 using System.Text.RegularExpressions;
 using FluentValidation;
+using NodaTime;
 using RecurringThings.Models;
 
 /// <summary>
@@ -58,16 +59,16 @@ internal sealed partial class RecurrenceCreateValidator : AbstractValidator<Recu
             .Must(HasUtcUntil)
             .WithMessage(GetUntilNotUtcMessage);
 
-        // Cross-property validation: RRule UNTIL must match RecurrenceEndTimeUtc
+        // Cross-property validation: RRule UNTIL must match RecurrenceEndTime when converted to UTC
         RuleFor(x => x.RRule)
-            .Must((request, rrule) => ValidateUntilMatchesEndTime(rrule, request.RecurrenceEndTimeUtc))
-            .WithMessage(x => $"RecurrenceEndTimeUtc ({x.RecurrenceEndTimeUtc:O}) must match RRule UNTIL.");
+            .Must((request, rrule) => ValidateUntilMatchesEndTime(rrule, request.RecurrenceEndTime, request.TimeZone))
+            .WithMessage(x => $"RecurrenceEndTime ({x.RecurrenceEndTime:O}) must match RRule UNTIL when converted to UTC.");
 
-        RuleFor(x => x.StartTimeUtc)
-            .MustBeUtc();
+        RuleFor(x => x.StartTime)
+            .MustNotBeUnspecified();
 
-        RuleFor(x => x.RecurrenceEndTimeUtc)
-            .MustBeUtc();
+        RuleFor(x => x.RecurrenceEndTime)
+            .MustNotBeUnspecified();
 
         RuleFor(x => x.Duration)
             .MustBePositive();
@@ -100,7 +101,7 @@ internal sealed partial class RecurrenceCreateValidator : AbstractValidator<Recu
         return $"RRule UNTIL must be in UTC (must end with 'Z'). Found: {untilValue}";
     }
 
-    private static bool ValidateUntilMatchesEndTime(string rrule, DateTime recurrenceEndTimeUtc)
+    private static bool ValidateUntilMatchesEndTime(string rrule, DateTime recurrenceEndTime, string? timeZone)
     {
         var untilMatch = UntilRegex().Match(rrule);
         if (!untilMatch.Success)
@@ -115,8 +116,21 @@ internal sealed partial class RecurrenceCreateValidator : AbstractValidator<Recu
             return false;
         }
 
+        // Convert recurrenceEndTime to UTC if it's Local
+        var endTimeUtc = recurrenceEndTime;
+        if (recurrenceEndTime.Kind == DateTimeKind.Local && !string.IsNullOrEmpty(timeZone))
+        {
+            var tz = DateTimeZoneProviders.Tzdb.GetZoneOrNull(timeZone);
+            if (tz is not null)
+            {
+                var localDateTime = LocalDateTime.FromDateTime(recurrenceEndTime);
+                var zonedDateTime = localDateTime.InZoneLeniently(tz);
+                endTimeUtc = zonedDateTime.ToDateTimeUtc();
+            }
+        }
+
         // Allow 1 second tolerance for comparison due to potential rounding
-        var difference = Math.Abs((parsedUntil - recurrenceEndTimeUtc).TotalSeconds);
+        var difference = Math.Abs((parsedUntil - endTimeUtc).TotalSeconds);
         return difference <= 1;
     }
 
