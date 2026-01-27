@@ -28,8 +28,8 @@ public interface IRecurrenceEngine
     /// </summary>
     /// <param name="organization">The tenant identifier.</param>
     /// <param name="resourcePath">The resource path scope.</param>
-    /// <param name="startUtc">The start of the date range (UTC).</param>
-    /// <param name="endUtc">The end of the date range (UTC).</param>
+    /// <param name="start">The start of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
+    /// <param name="end">The end of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
     /// <param name="types">Optional type filter. Null returns all types.</param>
     /// <param name="transactionContext">Optional transaction context.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
@@ -39,6 +39,7 @@ public interface IRecurrenceEngine
     /// <item>Standalone occurrences in the range</item>
     /// <item>Virtualized occurrences from recurrences in the range</item>
     /// </list>
+    /// Times in returned entries are converted to local time based on each entry's TimeZone.
     /// </returns>
     /// <remarks>
     /// <para>
@@ -50,12 +51,19 @@ public interface IRecurrenceEngine
     /// <para>
     /// Overridden occurrences are returned with the override values and original values populated.
     /// </para>
+    /// <para>
+    /// Local times are converted to UTC internally for querying. The conversion uses the system's
+    /// local timezone, so for consistent behavior across environments, prefer passing UTC times.
+    /// </para>
     /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="start"/> or <paramref name="end"/> has DateTimeKind.Unspecified.
+    /// </exception>
     IAsyncEnumerable<CalendarEntry> GetAsync(
         string organization,
         string resourcePath,
-        DateTime startUtc,
-        DateTime endUtc,
+        DateTime start,
+        DateTime end,
         string[]? types,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default);
@@ -78,9 +86,9 @@ public interface IRecurrenceEngine
     ///     Organization = "tenant1",
     ///     ResourcePath = "user123/calendar",
     ///     Type = "appointment",
-    ///     StartTimeUtc = DateTime.UtcNow,
+    ///     StartTime = DateTime.UtcNow, // Or DateTime.Now for local time
     ///     Duration = TimeSpan.FromHours(1),
-    ///     RecurrenceEndTimeUtc = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+    ///     RecurrenceEndTime = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
     ///     RRule = "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
     ///     TimeZone = "America/New_York"
     /// });
@@ -99,7 +107,7 @@ public interface IRecurrenceEngine
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>The created <see cref="Occurrence"/>.</returns>
     /// <remarks>
-    /// EndTime is automatically computed as StartTimeUtc + Duration.
+    /// EndTime is automatically computed as StartTime + Duration.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> is null.</exception>
     /// <exception cref="ArgumentException">
@@ -112,7 +120,7 @@ public interface IRecurrenceEngine
     ///     Organization = "tenant1",
     ///     ResourcePath = "user123/calendar",
     ///     Type = "meeting",
-    ///     StartTimeUtc = DateTime.UtcNow,
+    ///     StartTime = DateTime.UtcNow, // Or DateTime.Now for local time
     ///     Duration = TimeSpan.FromMinutes(30),
     ///     TimeZone = "America/New_York"
     /// });

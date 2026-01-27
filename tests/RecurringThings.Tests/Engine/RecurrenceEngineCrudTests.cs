@@ -31,7 +31,7 @@ public class RecurrenceEngineCrudTests
     private const string TestOrganization = "test-org";
     private const string TestResourcePath = "test/path";
     private const string TestType = "appointment";
-    private const string TestTimeZone = "America/New_York";
+    private const string TestTimeZone = "Etc/UTC";
 
     public RecurrenceEngineCrudTests()
     {
@@ -77,9 +77,9 @@ public class RecurrenceEngineCrudTests
         result.Organization.Should().Be(request.Organization);
         result.ResourcePath.Should().Be(request.ResourcePath);
         result.Type.Should().Be(request.Type);
-        result.StartTime.Should().Be(request.StartTimeUtc);
+        result.StartTime.Should().Be(request.StartTime);
         result.Duration.Should().Be(request.Duration);
-        result.RecurrenceEndTime.Should().Be(request.RecurrenceEndTimeUtc);
+        result.RecurrenceEndTime.Should().Be(request.RecurrenceEndTime);
         result.RRule.Should().Be(request.RRule);
         result.TimeZone.Should().Be(request.TimeZone);
         result.Extensions.Should().BeEquivalentTo(request.Extensions);
@@ -198,7 +198,7 @@ public class RecurrenceEngineCrudTests
     {
         // Arrange
         var request = CreateValidOccurrenceRequest();
-        var expectedEndTime = request.StartTimeUtc + request.Duration;
+        var expectedEndTime = request.StartTime + request.Duration;
 
         _occurrenceRepo
             .Setup(r => r.CreateAsync(
@@ -214,7 +214,7 @@ public class RecurrenceEngineCrudTests
         result.Should().NotBeNull();
         result.Id.Should().NotBe(Guid.Empty);
         result.Organization.Should().Be(request.Organization);
-        result.StartTime.Should().Be(request.StartTimeUtc);
+        result.StartTime.Should().Be(request.StartTime);
         result.Duration.Should().Be(request.Duration);
         result.EndTime.Should().Be(expectedEndTime);
     }
@@ -932,9 +932,9 @@ public class RecurrenceEngineCrudTests
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
             Type = type ?? TestType,
-            StartTimeUtc = new DateTime(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc),
+            StartTime = new DateTime(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc),
             Duration = TimeSpan.FromHours(1),
-            RecurrenceEndTimeUtc = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            RecurrenceEndTime = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc),
             RRule = rrule ?? "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
             TimeZone = timeZone ?? TestTimeZone,
             Extensions = new Dictionary<string, string> { ["key"] = "value" }
@@ -948,7 +948,7 @@ public class RecurrenceEngineCrudTests
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
             Type = TestType,
-            StartTimeUtc = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
+            StartTime = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
             Duration = duration ?? TimeSpan.FromMinutes(30),
             TimeZone = TestTimeZone,
             Extensions = new Dictionary<string, string> { ["meeting"] = "standup" }

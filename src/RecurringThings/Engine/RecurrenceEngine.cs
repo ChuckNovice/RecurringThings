@@ -78,12 +78,31 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     public async IAsyncEnumerable<CalendarEntry> GetAsync(
         string organization,
         string resourcePath,
-        DateTime startUtc,
-        DateTime endUtc,
+        DateTime start,
+        DateTime end,
         string[]? types,
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // Validate that start and end have a specified Kind (UTC or Local, not Unspecified)
+        if (start.Kind == DateTimeKind.Unspecified)
+        {
+            throw new ArgumentException(
+                "start must have a specified Kind (Utc or Local). DateTimeKind.Unspecified is not allowed.",
+                nameof(start));
+        }
+
+        if (end.Kind == DateTimeKind.Unspecified)
+        {
+            throw new ArgumentException(
+                "end must have a specified Kind (Utc or Local). DateTimeKind.Unspecified is not allowed.",
+                nameof(end));
+        }
+
+        // Convert to UTC if needed (using system timezone for Local times)
+        var startUtc = start.Kind == DateTimeKind.Utc ? start : start.ToUniversalTime();
+        var endUtc = end.Kind == DateTimeKind.Utc ? end : end.ToUniversalTime();
+
         // Validate types filter
         Validator.ValidateTypesFilter(types);
 
@@ -212,6 +231,10 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         var validationResult = await _recurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
         validationResult.ThrowIfInvalid();
 
+        // Convert input times to UTC if they're local
+        var startTimeUtc = ConvertToUtc(request.StartTime, request.TimeZone);
+        var recurrenceEndTimeUtc = ConvertToUtc(request.RecurrenceEndTime, request.TimeZone);
+
         // Create the recurrence entity
         var recurrence = new Recurrence
         {
@@ -219,9 +242,9 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             Organization = request.Organization,
             ResourcePath = request.ResourcePath,
             Type = request.Type,
-            StartTime = request.StartTimeUtc,
+            StartTime = startTimeUtc,
             Duration = request.Duration,
-            RecurrenceEndTime = request.RecurrenceEndTimeUtc,
+            RecurrenceEndTime = recurrenceEndTimeUtc,
             RRule = request.RRule,
             TimeZone = request.TimeZone,
             Extensions = request.Extensions
@@ -244,6 +267,9 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         var validationResult = await _occurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
         validationResult.ThrowIfInvalid();
 
+        // Convert input time to UTC if it's local
+        var startTimeUtc = ConvertToUtc(request.StartTime, request.TimeZone);
+
         // Create the occurrence entity
         var occurrence = new Domain.Occurrence
         {
@@ -256,7 +282,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         };
 
         // Initialize with StartTime and Duration (auto-computes EndTime)
-        occurrence.Initialize(request.StartTimeUtc, request.Duration);
+        occurrence.Initialize(startTimeUtc, request.Duration);
 
         // Persist via repository
         return await _occurrenceRepository.CreateAsync(
@@ -349,13 +375,17 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     /// </summary>
     private static CalendarEntry CreateVirtualizedEntry(Recurrence recurrence, DateTime occurrenceTimeUtc)
     {
+        var startTimeLocal = ConvertToLocal(occurrenceTimeUtc, recurrence.TimeZone);
+        var endTimeUtc = occurrenceTimeUtc + recurrence.Duration;
+        var endTimeLocal = ConvertToLocal(endTimeUtc, recurrence.TimeZone);
+
         return new CalendarEntry
         {
             Organization = recurrence.Organization,
             ResourcePath = recurrence.ResourcePath,
             Type = recurrence.Type,
-            StartTime = occurrenceTimeUtc,
-            EndTime = occurrenceTimeUtc + recurrence.Duration,
+            StartTime = startTimeLocal,
+            EndTime = endTimeLocal,
             Duration = recurrence.Duration,
             TimeZone = recurrence.TimeZone,
             Extensions = recurrence.Extensions,
@@ -378,13 +408,16 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     /// </summary>
     private static CalendarEntry CreateOverriddenEntry(Recurrence recurrence, OccurrenceOverride @override)
     {
+        var startTimeLocal = ConvertToLocal(@override.StartTime, recurrence.TimeZone);
+        var endTimeLocal = ConvertToLocal(@override.EndTime, recurrence.TimeZone);
+
         return new CalendarEntry
         {
             Organization = recurrence.Organization,
             ResourcePath = recurrence.ResourcePath,
             Type = recurrence.Type,
-            StartTime = @override.StartTime,
-            EndTime = @override.EndTime,
+            StartTime = startTimeLocal,
+            EndTime = endTimeLocal,
             Duration = @override.Duration,
             TimeZone = recurrence.TimeZone,
             Extensions = @override.Extensions,
@@ -408,13 +441,16 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     /// </summary>
     private static CalendarEntry CreateStandaloneEntry(Domain.Occurrence occurrence)
     {
+        var startTimeLocal = ConvertToLocal(occurrence.StartTime, occurrence.TimeZone);
+        var endTimeLocal = ConvertToLocal(occurrence.EndTime, occurrence.TimeZone);
+
         return new CalendarEntry
         {
             Organization = occurrence.Organization,
             ResourcePath = occurrence.ResourcePath,
             Type = occurrence.Type,
-            StartTime = occurrence.StartTime,
-            EndTime = occurrence.EndTime,
+            StartTime = startTimeLocal,
+            EndTime = endTimeLocal,
             Duration = occurrence.Duration,
             TimeZone = occurrence.TimeZone,
             Extensions = occurrence.Extensions,
@@ -944,5 +980,38 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             entry.ResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Converts a DateTime to UTC. If already UTC, returns as-is. If Local, converts using the specified timezone.
+    /// </summary>
+    /// <param name="dateTime">The DateTime to convert.</param>
+    /// <param name="timeZone">The IANA timezone to use for conversion if the DateTime is Local.</param>
+    /// <returns>The DateTime in UTC.</returns>
+    private static DateTime ConvertToUtc(DateTime dateTime, string timeZone)
+    {
+        if (dateTime.Kind == DateTimeKind.Utc)
+        {
+            return dateTime;
+        }
+
+        var tz = DateTimeZoneProviders.Tzdb[timeZone];
+        var localDateTime = LocalDateTime.FromDateTime(dateTime);
+        var zonedDateTime = localDateTime.InZoneLeniently(tz);
+        return zonedDateTime.ToDateTimeUtc();
+    }
+
+    /// <summary>
+    /// Converts a UTC DateTime to local time in the specified timezone.
+    /// </summary>
+    /// <param name="utcDateTime">The UTC DateTime to convert.</param>
+    /// <param name="timeZone">The IANA timezone for the local time.</param>
+    /// <returns>The DateTime in local time (with DateTimeKind.Unspecified).</returns>
+    private static DateTime ConvertToLocal(DateTime utcDateTime, string timeZone)
+    {
+        var tz = DateTimeZoneProviders.Tzdb[timeZone];
+        var instant = Instant.FromDateTimeUtc(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
+        var zonedDateTime = instant.InZone(tz);
+        return zonedDateTime.LocalDateTime.ToDateTimeUnspecified();
     }
 }

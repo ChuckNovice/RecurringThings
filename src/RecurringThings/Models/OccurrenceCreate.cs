@@ -7,8 +7,9 @@ using System.Collections.Generic;
 /// Request model for creating a new standalone occurrence.
 /// </summary>
 /// <remarks>
-/// <para>All DateTime values must be provided in UTC.</para>
-/// <para>EndTime will be computed automatically as StartTimeUtc + Duration.</para>
+/// <para>DateTime values can be provided in UTC or Local time (Unspecified is not allowed).
+/// Local times are converted to UTC internally using the specified <see cref="TimeZone"/>.</para>
+/// <para>EndTime will be computed automatically as StartTime + Duration.</para>
 /// </remarks>
 public sealed class OccurrenceCreate
 {
@@ -39,18 +40,19 @@ public sealed class OccurrenceCreate
     public required string Type { get; init; }
 
     /// <summary>
-    /// Gets the UTC timestamp when this occurrence starts.
+    /// Gets the timestamp when this occurrence starts.
     /// </summary>
     /// <remarks>
-    /// Must be provided in UTC.
+    /// Can be provided in UTC or Local time (Unspecified is not allowed).
+    /// Local times are converted to UTC internally using <see cref="TimeZone"/>.
     /// </remarks>
-    public required DateTime StartTimeUtc { get; init; }
+    public required DateTime StartTime { get; init; }
 
     /// <summary>
     /// Gets the duration of this occurrence.
     /// </summary>
     /// <remarks>
-    /// EndTime will be computed as StartTimeUtc + Duration.
+    /// EndTime will be computed as StartTime + Duration.
     /// </remarks>
     public required TimeSpan Duration { get; init; }
 

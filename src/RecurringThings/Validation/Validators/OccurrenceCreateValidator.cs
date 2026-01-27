@@ -42,8 +42,8 @@ internal sealed class OccurrenceCreateValidator : AbstractValidator<OccurrenceCr
             .WithMessage($"TimeZone must not exceed {ValidationConstants.MaxTimeZoneLength} characters. Actual length: {{TotalLength}}.")
             .MustBeValidIanaTimeZone();
 
-        RuleFor(x => x.StartTimeUtc)
-            .MustBeUtc();
+        RuleFor(x => x.StartTime)
+            .MustNotBeUnspecified();
 
         RuleFor(x => x.Duration)
             .MustBePositive();
