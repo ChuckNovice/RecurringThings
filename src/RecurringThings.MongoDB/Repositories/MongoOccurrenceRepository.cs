@@ -15,7 +15,7 @@ using Transactional.MongoDB;
 /// <summary>
 /// MongoDB implementation of <see cref="IOccurrenceRepository"/>.
 /// </summary>
-public sealed class MongoOccurrenceRepository : IOccurrenceRepository
+internal sealed class MongoOccurrenceRepository : IOccurrenceRepository
 {
     private readonly IMongoCollection<RecurringThingDocument> _collection;
 

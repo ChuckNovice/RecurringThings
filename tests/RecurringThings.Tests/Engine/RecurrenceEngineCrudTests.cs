@@ -68,15 +68,15 @@ public class RecurrenceEngineCrudTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Id.Should().NotBe(Guid.Empty);
+        result.RecurrenceId.Should().NotBe(Guid.Empty);
+        result.EntryType.Should().Be(CalendarEntryType.Recurrence);
         result.Organization.Should().Be(TestOrganization);
         result.ResourcePath.Should().Be(TestResourcePath);
         result.Type.Should().Be(TestType);
         result.StartTime.Should().Be(startTime);
         result.Duration.Should().Be(duration);
-        // RecurrenceEndTime is extracted from RRule UNTIL clause
-        result.RecurrenceEndTime.Should().Be(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc));
-        result.RRule.Should().Be(TestRRule);
+        result.RecurrenceDetails.Should().NotBeNull();
+        result.RecurrenceDetails!.RRule.Should().Be(TestRRule);
         result.TimeZone.Should().Be(TestTimeZone);
         result.Extensions.Should().BeEquivalentTo(extensions);
     }
@@ -210,7 +210,8 @@ public class RecurrenceEngineCrudTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Id.Should().NotBe(Guid.Empty);
+        result.OccurrenceId.Should().NotBe(Guid.Empty);
+        result.EntryType.Should().Be(CalendarEntryType.Standalone);
         result.Organization.Should().Be(TestOrganization);
         result.StartTime.Should().Be(startTime);
         result.Duration.Should().Be(duration);
@@ -338,21 +339,26 @@ public class RecurrenceEngineCrudTests
     }
 
     [Fact]
-    public async Task UpdateAsync_StandaloneOccurrenceWithImmutableTypeChange_ThrowsInvalidOperationException()
+    public async Task UpdateAsync_StandaloneOccurrenceWithTypeChange_UpdatesTypeSuccessfully()
     {
         // Arrange
         var occurrenceId = Guid.NewGuid();
         var existingOccurrence = CreateOccurrence(occurrenceId);
+        var newType = "different-type";
 
         _occurrenceRepo
             .Setup(r => r.GetByIdAsync(occurrenceId, TestOrganization, TestResourcePath, null, default))
             .ReturnsAsync(existingOccurrence);
 
+        _occurrenceRepo
+            .Setup(r => r.UpdateAsync(It.IsAny<Occurrence>(), null, default))
+            .ReturnsAsync((Occurrence o, ITransactionContext? _, CancellationToken _) => o);
+
         var entry = new CalendarEntry
         {
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
-            Type = "different-type", // Changed!
+            Type = newType, // Changed - Type is mutable on standalone occurrences
             StartTime = existingOccurrence.StartTime,
             Duration = existingOccurrence.Duration,
             TimeZone = TestTimeZone,
@@ -360,11 +366,14 @@ public class RecurrenceEngineCrudTests
         };
 
         // Act
-        var act = () => _engine.UpdateOccurrenceAsync(entry);
+        var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Type*immutable*");
+        result.Type.Should().Be(newType);
+        _occurrenceRepo.Verify(r => r.UpdateAsync(
+            It.Is<Occurrence>(o => o.Type == newType),
+            null,
+            default), Times.Once);
     }
 
     #endregion

@@ -16,7 +16,7 @@ using System.Collections.Generic;
 /// Once an exception is created, the occurrence cannot be restored through the API.
 /// </para>
 /// </remarks>
-public sealed class OccurrenceException
+internal sealed class OccurrenceException
 {
     /// <summary>
     /// Gets the unique identifier for this exception.

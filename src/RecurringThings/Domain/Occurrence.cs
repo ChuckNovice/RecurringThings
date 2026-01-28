@@ -12,11 +12,12 @@ using System.Collections.Generic;
 /// are stored directly in the database.
 /// </para>
 /// <para>
-/// After creation, <see cref="StartTime"/>, <see cref="Duration"/>, and <see cref="Extensions"/> can be modified.
+/// After creation, <see cref="StartTime"/>, <see cref="Duration"/>, <see cref="Extensions"/>,
+/// <see cref="Type"/>, and <see cref="ResourcePath"/> can be modified.
 /// When StartTime or Duration changes, <see cref="EndTime"/> is automatically recomputed.
 /// </para>
 /// </remarks>
-public sealed class Occurrence
+internal sealed class Occurrence
 {
     private DateTime _startTime;
     private TimeSpan _duration;
@@ -35,22 +36,22 @@ public sealed class Occurrence
     public required string Organization { get; init; }
 
     /// <summary>
-    /// Gets the hierarchical resource scope.
+    /// Gets or sets the hierarchical resource scope.
     /// </summary>
     /// <remarks>
     /// Used for organizing resources hierarchically (e.g., "user123/calendar", "store456").
     /// Must be between 0 and 100 characters. Empty string is allowed.
     /// </remarks>
-    public required string ResourcePath { get; init; }
+    public required string ResourcePath { get; set; }
 
     /// <summary>
-    /// Gets the user-defined type of this occurrence.
+    /// Gets or sets the user-defined type of this occurrence.
     /// </summary>
     /// <remarks>
     /// Used to differentiate between different kinds of occurrences (e.g., "appointment", "meeting").
     /// Must be between 1 and 100 characters. Empty string is NOT allowed.
     /// </remarks>
-    public required string Type { get; init; }
+    public required string Type { get; set; }
 
     /// <summary>
     /// Gets or sets the UTC timestamp when this occurrence starts.

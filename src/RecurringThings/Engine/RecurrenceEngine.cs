@@ -31,7 +31,7 @@ using Transactional.Abstractions;
 /// <item>Streams results as <see cref="CalendarEntry"/> objects</item>
 /// </list>
 /// </remarks>
-public sealed class RecurrenceEngine : IRecurrenceEngine
+internal sealed class RecurrenceEngine : IRecurrenceEngine
 {
     private readonly IRecurrenceRepository _recurrenceRepository;
     private readonly IOccurrenceRepository _occurrenceRepository;
@@ -211,7 +211,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     }
 
     /// <inheritdoc/>
-    public async Task<Recurrence> CreateRecurrenceAsync(
+    public async Task<CalendarEntry> CreateRecurrenceAsync(
         string organization,
         string resourcePath,
         string type,
@@ -248,14 +248,17 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         };
 
         // Persist via repository
-        return await _recurrenceRepository.CreateAsync(
+        var created = await _recurrenceRepository.CreateAsync(
             recurrence,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
+
+        // Convert to CalendarEntry
+        return CreateRecurrenceEntry(created);
     }
 
     /// <inheritdoc/>
-    public async Task<Domain.Occurrence> CreateOccurrenceAsync(
+    public async Task<CalendarEntry> CreateOccurrenceAsync(
         string organization,
         string resourcePath,
         string type,
@@ -287,10 +290,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         occurrence.Initialize(startTimeUtc, duration);
 
         // Persist via repository
-        return await _occurrenceRepository.CreateAsync(
+        var created = await _occurrenceRepository.CreateAsync(
             occurrence,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
+
+        // Convert to CalendarEntry
+        return CreateStandaloneEntry(created);
     }
 
     /// <summary>
@@ -539,17 +545,20 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     }
 
     /// <summary>
-    /// Updates a standalone occurrence. StartTime, Duration, and Extensions are mutable.
+    /// Updates a standalone occurrence. StartTime, Duration, Extensions, Type, and ResourcePath are mutable.
     /// </summary>
     private async Task<CalendarEntry> UpdateStandaloneOccurrenceAsync(
         CalendarEntry entry,
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
+        // Use OriginalResourcePath if ResourcePath was modified
+        var lookupResourcePath = entry.OriginalResourcePath ?? entry.ResourcePath;
+
         var occurrence = await _occurrenceRepository.GetByIdAsync(
             entry.OccurrenceId!.Value,
             entry.Organization,
-            entry.ResourcePath,
+            lookupResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Occurrence with ID '{entry.OccurrenceId}' not found.");
@@ -561,6 +570,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         occurrence.StartTime = entry.StartTime;
         occurrence.Duration = entry.Duration;
         occurrence.Extensions = entry.Extensions;
+        occurrence.Type = entry.Type;
+        occurrence.ResourcePath = entry.ResourcePath;
 
         var updated = await _occurrenceRepository.UpdateAsync(
             occurrence,
@@ -581,18 +592,6 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
                 "Cannot modify Organization. This field is immutable after creation.");
         }
 
-        if (entry.ResourcePath != existing.ResourcePath)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify ResourcePath. This field is immutable after creation.");
-        }
-
-        if (entry.Type != existing.Type)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify Type. This field is immutable after creation.");
-        }
-
         if (entry.TimeZone != existing.TimeZone)
         {
             throw new InvalidOperationException(
@@ -611,10 +610,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         var recurrenceId = entry.RecurrenceId
             ?? throw new InvalidOperationException("Cannot create override: RecurrenceId is missing.");
 
+        // Use OriginalResourcePath if ResourcePath was modified (though this should fail validation)
+        var lookupResourcePath = entry.OriginalResourcePath ?? entry.ResourcePath;
+
         var recurrence = await _recurrenceRepository.GetByIdAsync(
             recurrenceId,
             entry.Organization,
-            entry.ResourcePath,
+            lookupResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Parent recurrence with ID '{recurrenceId}' not found.");
@@ -662,10 +664,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
+        // Use OriginalResourcePath if ResourcePath was modified (though this should fail validation)
+        var lookupResourcePath = entry.OriginalResourcePath ?? entry.ResourcePath;
+
         var @override = await _overrideRepository.GetByIdAsync(
             entry.OverrideId!.Value,
             entry.Organization,
-            entry.ResourcePath,
+            lookupResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Override with ID '{entry.OverrideId}' not found.");
@@ -674,7 +679,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         var recurrence = await _recurrenceRepository.GetByIdAsync(
             @override.RecurrenceId,
             entry.Organization,
-            entry.ResourcePath,
+            lookupResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
                 $"Parent recurrence with ID '{@override.RecurrenceId}' not found.");

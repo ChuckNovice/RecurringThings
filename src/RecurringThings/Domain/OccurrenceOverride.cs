@@ -20,7 +20,7 @@ using System.Collections.Generic;
 /// When StartTime or Duration changes, <see cref="EndTime"/> is automatically recomputed.
 /// </para>
 /// </remarks>
-public sealed class OccurrenceOverride
+internal sealed class OccurrenceOverride
 {
     private DateTime _startTime;
     private TimeSpan _duration;

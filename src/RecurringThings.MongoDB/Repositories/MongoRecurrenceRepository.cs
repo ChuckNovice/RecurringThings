@@ -15,7 +15,7 @@ using Transactional.MongoDB;
 /// <summary>
 /// MongoDB implementation of <see cref="IRecurrenceRepository"/>.
 /// </summary>
-public sealed class MongoRecurrenceRepository : IRecurrenceRepository
+internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
 {
     private readonly IMongoCollection<RecurringThingDocument> _collection;
 

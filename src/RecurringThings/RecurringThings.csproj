@@ -10,8 +10,8 @@
 
   <PropertyGroup>
     <PackageId>RecurringThings</PackageId>
-    <Authors>RecurringThings Contributors</Authors>
-    <Description>A .NET library for managing recurring events with on-demand virtualization, supporting MongoDB and PostgreSQL persistence.</Description>
+    <Authors>Miguel Tremblay</Authors>
+    <Description>A .NET library for managing recurring events with efficient on-demand virtualization.</Description>
     <RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -26,7 +26,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="RecurringThings.Tests" />
     <InternalsVisibleTo Include="RecurringThings.MongoDB" />
+    <InternalsVisibleTo Include="RecurringThings.MongoDB.Tests" />
     <InternalsVisibleTo Include="RecurringThings.PostgreSQL" />
+    <InternalsVisibleTo Include="RecurringThings.PostgreSQL.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>
