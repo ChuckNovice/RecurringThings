@@ -7,10 +7,10 @@ using System.Collections.Generic;
 /// Contains the original values of a virtualized occurrence before an override was applied.
 /// </summary>
 /// <remarks>
-/// This class is populated on <see cref="RecurrenceOccurrenceDetails.Original"/> when
+/// This class is populated on <see cref="CalendarEntry.Original"/> when
 /// the virtualized occurrence has been modified by an override.
 /// </remarks>
-public sealed class OccurrenceOriginal
+public sealed class OriginalDetails
 {
     /// <summary>
     /// Gets or sets the original UTC start time before the override was applied.

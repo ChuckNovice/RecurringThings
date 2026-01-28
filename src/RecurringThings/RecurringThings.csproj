@@ -15,10 +15,12 @@
     <RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>logo_gray.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\logo_gray.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

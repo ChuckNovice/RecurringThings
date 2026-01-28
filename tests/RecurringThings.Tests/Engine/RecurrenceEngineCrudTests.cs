@@ -5,13 +5,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using FluentValidation;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
 using RecurringThings.Models;
 using RecurringThings.Repository;
-using RecurringThings.Validation.Validators;
 using Transactional.Abstractions;
 using Xunit;
 
@@ -24,14 +22,13 @@ public class RecurrenceEngineCrudTests
     private readonly Mock<IOccurrenceRepository> _occurrenceRepo;
     private readonly Mock<IOccurrenceExceptionRepository> _exceptionRepo;
     private readonly Mock<IOccurrenceOverrideRepository> _overrideRepo;
-    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
-    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
     private readonly RecurrenceEngine _engine;
 
     private const string TestOrganization = "test-org";
     private const string TestResourcePath = "test/path";
     private const string TestType = "appointment";
     private const string TestTimeZone = "Etc/UTC";
+    private const string TestRRule = "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z";
 
     public RecurrenceEngineCrudTests()
     {
@@ -39,58 +36,58 @@ public class RecurrenceEngineCrudTests
         _occurrenceRepo = new Mock<IOccurrenceRepository>();
         _exceptionRepo = new Mock<IOccurrenceExceptionRepository>();
         _overrideRepo = new Mock<IOccurrenceOverrideRepository>();
-        _recurrenceCreateValidator = new RecurrenceCreateValidator();
-        _occurrenceCreateValidator = new OccurrenceCreateValidator();
 
         _engine = new RecurrenceEngine(
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
+            _overrideRepo.Object);
     }
 
     #region CreateRecurrenceAsync Tests
 
     [Fact]
-    public async Task CreateRecurrenceAsync_WithValidRequest_ReturnsRecurrenceWithGeneratedId()
+    public async Task CreateRecurrenceAsync_WithValidParameters_ReturnsRecurrenceWithGeneratedId()
     {
         // Arrange
-        var request = CreateValidRecurrenceRequest();
-        Recurrence? capturedRecurrence = null;
+        var startTime = new DateTime(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc);
+        var duration = TimeSpan.FromHours(1);
+        var extensions = new Dictionary<string, string> { ["key"] = "value" };
 
         _recurrenceRepo
             .Setup(r => r.CreateAsync(
                 It.IsAny<Recurrence>(),
                 It.IsAny<ITransactionContext?>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<Recurrence, ITransactionContext?, CancellationToken>((r, _, _) => capturedRecurrence = r)
             .ReturnsAsync((Recurrence r, ITransactionContext? _, CancellationToken _) => r);
 
         // Act
-        var result = await _engine.CreateRecurrenceAsync(request);
+        var result = await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            startTime, duration, TestRRule, TestTimeZone, extensions);
 
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().NotBe(Guid.Empty);
-        result.Organization.Should().Be(request.Organization);
-        result.ResourcePath.Should().Be(request.ResourcePath);
-        result.Type.Should().Be(request.Type);
-        result.StartTime.Should().Be(request.StartTime);
-        result.Duration.Should().Be(request.Duration);
+        result.Organization.Should().Be(TestOrganization);
+        result.ResourcePath.Should().Be(TestResourcePath);
+        result.Type.Should().Be(TestType);
+        result.StartTime.Should().Be(startTime);
+        result.Duration.Should().Be(duration);
         // RecurrenceEndTime is extracted from RRule UNTIL clause
         result.RecurrenceEndTime.Should().Be(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc));
-        result.RRule.Should().Be(request.RRule);
-        result.TimeZone.Should().Be(request.TimeZone);
-        result.Extensions.Should().BeEquivalentTo(request.Extensions);
+        result.RRule.Should().Be(TestRRule);
+        result.TimeZone.Should().Be(TestTimeZone);
+        result.Extensions.Should().BeEquivalentTo(extensions);
     }
 
     [Fact]
-    public async Task CreateRecurrenceAsync_WithNullRequest_ThrowsArgumentNullException()
+    public async Task CreateRecurrenceAsync_WithNullOrganization_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => _engine.CreateRecurrenceAsync(null!);
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            null!, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentNullException>();
@@ -99,25 +96,23 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task CreateRecurrenceAsync_WithEmptyType_ThrowsArgumentException()
     {
-        // Arrange
-        var request = CreateValidRecurrenceRequest(type: "");
-
         // Act
-        var act = () => _engine.CreateRecurrenceAsync(request);
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, "",
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("Type");
+            .WithParameterName("type");
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithRRuleContainingCount_ThrowsArgumentException()
     {
-        // Arrange
-        var request = CreateValidRecurrenceRequest(rrule: "FREQ=DAILY;COUNT=10");
-
         // Act
-        var act = () => _engine.CreateRecurrenceAsync(request);
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;COUNT=10", TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -127,11 +122,10 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task CreateRecurrenceAsync_WithRRuleMissingUntil_ThrowsArgumentException()
     {
-        // Arrange
-        var request = CreateValidRecurrenceRequest(rrule: "FREQ=DAILY;BYDAY=MO,TU,WE");
-
         // Act
-        var act = () => _engine.CreateRecurrenceAsync(request);
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;BYDAY=MO,TU,WE", TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -141,11 +135,10 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task CreateRecurrenceAsync_WithNonUtcUntil_ThrowsArgumentException()
     {
-        // Arrange - Missing Z suffix means non-UTC
-        var request = CreateValidRecurrenceRequest(rrule: "FREQ=DAILY;UNTIL=20251231T235959");
-
-        // Act
-        var act = () => _engine.CreateRecurrenceAsync(request);
+        // Act - Missing Z suffix means non-UTC
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;UNTIL=20251231T235959", TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -155,22 +148,20 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task CreateRecurrenceAsync_WithInvalidTimeZone_ThrowsArgumentException()
     {
-        // Arrange
-        var request = CreateValidRecurrenceRequest(timeZone: "Invalid/TimeZone");
-
         // Act
-        var act = () => _engine.CreateRecurrenceAsync(request);
+        var act = async () => await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, "Invalid/TimeZone");
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("TimeZone");
+            .WithParameterName("timeZone");
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_PassesTransactionContextToRepository()
     {
         // Arrange
-        var request = CreateValidRecurrenceRequest();
         var mockContext = new Mock<ITransactionContext>();
 
         _recurrenceRepo
@@ -181,7 +172,10 @@ public class RecurrenceEngineCrudTests
             .ReturnsAsync((Recurrence r, ITransactionContext? _, CancellationToken _) => r);
 
         // Act
-        await _engine.CreateRecurrenceAsync(request, mockContext.Object);
+        await _engine.CreateRecurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone,
+            transactionContext: mockContext.Object);
 
         // Assert
         _recurrenceRepo.Verify(r => r.CreateAsync(
@@ -195,11 +189,12 @@ public class RecurrenceEngineCrudTests
     #region CreateOccurrenceAsync Tests
 
     [Fact]
-    public async Task CreateOccurrenceAsync_WithValidRequest_ReturnsOccurrenceWithComputedEndTime()
+    public async Task CreateOccurrenceAsync_WithValidParameters_ReturnsOccurrenceWithComputedEndTime()
     {
         // Arrange
-        var request = CreateValidOccurrenceRequest();
-        var expectedEndTime = request.StartTime + request.Duration;
+        var startTime = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var duration = TimeSpan.FromMinutes(30);
+        var expectedEndTime = startTime + duration;
 
         _occurrenceRepo
             .Setup(r => r.CreateAsync(
@@ -209,22 +204,26 @@ public class RecurrenceEngineCrudTests
             .ReturnsAsync((Occurrence o, ITransactionContext? _, CancellationToken _) => o);
 
         // Act
-        var result = await _engine.CreateOccurrenceAsync(request);
+        var result = await _engine.CreateOccurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            startTime, duration, TestTimeZone);
 
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().NotBe(Guid.Empty);
-        result.Organization.Should().Be(request.Organization);
-        result.StartTime.Should().Be(request.StartTime);
-        result.Duration.Should().Be(request.Duration);
+        result.Organization.Should().Be(TestOrganization);
+        result.StartTime.Should().Be(startTime);
+        result.Duration.Should().Be(duration);
         result.EndTime.Should().Be(expectedEndTime);
     }
 
     [Fact]
-    public async Task CreateOccurrenceAsync_WithNullRequest_ThrowsArgumentNullException()
+    public async Task CreateOccurrenceAsync_WithNullOrganization_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => _engine.CreateOccurrenceAsync(null!);
+        var act = async () => await _engine.CreateOccurrenceAsync(
+            null!, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromMinutes(30), TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentNullException>();
@@ -233,22 +232,20 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task CreateOccurrenceAsync_WithZeroDuration_ThrowsArgumentException()
     {
-        // Arrange
-        var request = CreateValidOccurrenceRequest(duration: TimeSpan.Zero);
-
         // Act
-        var act = () => _engine.CreateOccurrenceAsync(request);
+        var act = async () => await _engine.CreateOccurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.Zero, TestTimeZone);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("Duration");
+            .WithParameterName("duration");
     }
 
     [Fact]
     public async Task CreateOccurrenceAsync_PassesTransactionContextToRepository()
     {
         // Arrange
-        var request = CreateValidOccurrenceRequest();
         var mockContext = new Mock<ITransactionContext>();
 
         _occurrenceRepo
@@ -259,7 +256,10 @@ public class RecurrenceEngineCrudTests
             .ReturnsAsync((Occurrence o, ITransactionContext? _, CancellationToken _) => o);
 
         // Act
-        await _engine.CreateOccurrenceAsync(request, mockContext.Object);
+        await _engine.CreateOccurrenceAsync(
+            TestOrganization, TestResourcePath, TestType,
+            DateTime.UtcNow, TimeSpan.FromMinutes(30), TestTimeZone,
+            transactionContext: mockContext.Object);
 
         // Assert
         _occurrenceRepo.Verify(r => r.CreateAsync(
@@ -270,164 +270,30 @@ public class RecurrenceEngineCrudTests
 
     #endregion
 
-    #region UpdateAsync Tests - Recurrence
+    #region UpdateOccurrenceAsync Tests - Recurrence (Blocked)
 
     [Fact]
-    public async Task UpdateAsync_RecurrenceDuration_UpdatesSuccessfully()
+    public async Task UpdateOccurrenceAsync_Recurrence_ThrowsInvalidOperationException()
     {
         // Arrange
         var recurrenceId = Guid.NewGuid();
-        var existingRecurrence = CreateRecurrence(recurrenceId);
-        var newDuration = TimeSpan.FromHours(2);
-
-        _recurrenceRepo
-            .Setup(r => r.GetByIdAsync(recurrenceId, TestOrganization, TestResourcePath, null, default))
-            .ReturnsAsync(existingRecurrence);
-
-        _recurrenceRepo
-            .Setup(r => r.UpdateAsync(It.IsAny<Recurrence>(), null, default))
-            .ReturnsAsync((Recurrence r, ITransactionContext? _, CancellationToken _) => r);
 
         var entry = new CalendarEntry
         {
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
             Type = TestType,
-            StartTime = existingRecurrence.StartTime,
-            Duration = newDuration,
             TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
+            RecurrenceId = recurrenceId,
+            EntryType = CalendarEntryType.Recurrence
         };
 
         // Act
-        var result = await _engine.UpdateAsync(entry);
-
-        // Assert
-        result.Duration.Should().Be(newDuration);
-        _recurrenceRepo.Verify(r => r.UpdateAsync(
-            It.Is<Recurrence>(rec => rec.Duration == newDuration),
-            null, default), Times.Once);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_RecurrenceExtensions_UpdatesSuccessfully()
-    {
-        // Arrange
-        var recurrenceId = Guid.NewGuid();
-        var existingRecurrence = CreateRecurrence(recurrenceId);
-        var newExtensions = new Dictionary<string, string> { ["newKey"] = "newValue" };
-
-        _recurrenceRepo
-            .Setup(r => r.GetByIdAsync(recurrenceId, TestOrganization, TestResourcePath, null, default))
-            .ReturnsAsync(existingRecurrence);
-
-        _recurrenceRepo
-            .Setup(r => r.UpdateAsync(It.IsAny<Recurrence>(), null, default))
-            .ReturnsAsync((Recurrence r, ITransactionContext? _, CancellationToken _) => r);
-
-        var entry = new CalendarEntry
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = TestType,
-            StartTime = existingRecurrence.StartTime,
-            Duration = existingRecurrence.Duration,
-            TimeZone = TestTimeZone,
-            Extensions = newExtensions,
-            RecurrenceId = recurrenceId
-        };
-
-        // Act
-        var result = await _engine.UpdateAsync(entry);
-
-        // Assert
-        result.Extensions.Should().BeEquivalentTo(newExtensions);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_RecurrenceWithImmutableTypeChange_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var recurrenceId = Guid.NewGuid();
-        var existingRecurrence = CreateRecurrence(recurrenceId);
-
-        _recurrenceRepo
-            .Setup(r => r.GetByIdAsync(recurrenceId, TestOrganization, TestResourcePath, null, default))
-            .ReturnsAsync(existingRecurrence);
-
-        var entry = new CalendarEntry
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = "different-type", // Changed!
-            StartTime = existingRecurrence.StartTime,
-            Duration = existingRecurrence.Duration,
-            TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
-        };
-
-        // Act
-        var act = () => _engine.UpdateAsync(entry);
+        var act = async () => await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Type*immutable*");
-    }
-
-    [Fact]
-    public async Task UpdateAsync_RecurrenceWithImmutableStartTimeChange_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var recurrenceId = Guid.NewGuid();
-        var existingRecurrence = CreateRecurrence(recurrenceId);
-
-        _recurrenceRepo
-            .Setup(r => r.GetByIdAsync(recurrenceId, TestOrganization, TestResourcePath, null, default))
-            .ReturnsAsync(existingRecurrence);
-
-        var entry = new CalendarEntry
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = TestType,
-            StartTime = existingRecurrence.StartTime.AddHours(1), // Changed!
-            Duration = existingRecurrence.Duration,
-            TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
-        };
-
-        // Act
-        var act = () => _engine.UpdateAsync(entry);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*StartTime*immutable*");
-    }
-
-    [Fact]
-    public async Task UpdateAsync_RecurrenceNotFound_ThrowsKeyNotFoundException()
-    {
-        // Arrange
-        var recurrenceId = Guid.NewGuid();
-
-        _recurrenceRepo
-            .Setup(r => r.GetByIdAsync(recurrenceId, TestOrganization, TestResourcePath, null, default))
-            .ReturnsAsync((Recurrence?)null);
-
-        var entry = new CalendarEntry
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = TestType,
-            TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
-        };
-
-        // Act
-        var act = () => _engine.UpdateAsync(entry);
-
-        // Assert
-        await act.Should().ThrowAsync<KeyNotFoundException>();
+            .WithMessage("*Cannot update a recurrence pattern*");
     }
 
     #endregion
@@ -463,7 +329,7 @@ public class RecurrenceEngineCrudTests
         };
 
         // Act
-        var result = await _engine.UpdateAsync(entry);
+        var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         result.StartTime.Should().Be(newStartTime);
@@ -494,7 +360,7 @@ public class RecurrenceEngineCrudTests
         };
 
         // Act
-        var act = () => _engine.UpdateAsync(entry);
+        var act = () => _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -533,20 +399,17 @@ public class RecurrenceEngineCrudTests
             Duration = newDuration,
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = originalStartTime,
-                    Duration = recurrence.Duration,
-                    Extensions = recurrence.Extensions
-                }
+                StartTime = originalStartTime,
+                Duration = recurrence.Duration,
+                Extensions = recurrence.Extensions
             }
         };
 
         // Act
-        var result = await _engine.UpdateAsync(entry);
+        var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         capturedOverride.Should().NotBeNull();
@@ -589,20 +452,17 @@ public class RecurrenceEngineCrudTests
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
             OverrideId = overrideId,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = existingOverride.OriginalTimeUtc,
-                    Duration = existingOverride.OriginalDuration,
-                    Extensions = existingOverride.OriginalExtensions
-                }
+                StartTime = existingOverride.OriginalTimeUtc,
+                Duration = existingOverride.OriginalDuration,
+                Extensions = existingOverride.OriginalExtensions
             }
         };
 
         // Act
-        var result = await _engine.UpdateAsync(entry);
+        var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         _overrideRepo.Verify(r => r.UpdateAsync(
@@ -619,7 +479,7 @@ public class RecurrenceEngineCrudTests
     public async Task UpdateAsync_WithNullEntry_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => _engine.UpdateAsync(null!);
+        var act = () => _engine.UpdateOccurrenceAsync(null!);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentNullException>();
@@ -639,7 +499,7 @@ public class RecurrenceEngineCrudTests
         };
 
         // Act
-        var act = () => _engine.UpdateAsync(entry);
+        var act = () => _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -648,10 +508,10 @@ public class RecurrenceEngineCrudTests
 
     #endregion
 
-    #region DeleteAsync Tests
+    #region DeleteOccurrenceAsync Tests
 
     [Fact]
-    public async Task DeleteAsync_Recurrence_CallsRepositoryDelete()
+    public async Task DeleteOccurrenceAsync_Recurrence_ThrowsInvalidOperationException()
     {
         // Arrange
         var recurrenceId = Guid.NewGuid();
@@ -661,19 +521,20 @@ public class RecurrenceEngineCrudTests
             ResourcePath = TestResourcePath,
             Type = TestType,
             TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
+            RecurrenceId = recurrenceId,
+            EntryType = CalendarEntryType.Recurrence
         };
 
         // Act
-        await _engine.DeleteAsync(entry);
+        var act = async () => await _engine.DeleteOccurrenceAsync(entry);
 
         // Assert
-        _recurrenceRepo.Verify(r => r.DeleteAsync(
-            recurrenceId, TestOrganization, TestResourcePath, null, default), Times.Once);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Use DeleteRecurrenceAsync*");
     }
 
     [Fact]
-    public async Task DeleteAsync_StandaloneOccurrence_CallsRepositoryDelete()
+    public async Task DeleteOccurrenceAsync_StandaloneOccurrence_CallsRepositoryDelete()
     {
         // Arrange
         var occurrenceId = Guid.NewGuid();
@@ -687,7 +548,7 @@ public class RecurrenceEngineCrudTests
         };
 
         // Act
-        await _engine.DeleteAsync(entry);
+        await _engine.DeleteOccurrenceAsync(entry);
 
         // Assert
         _occurrenceRepo.Verify(r => r.DeleteAsync(
@@ -715,20 +576,17 @@ public class RecurrenceEngineCrudTests
             StartTime = originalTime,
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = originalTime,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
-                }
+                StartTime = originalTime,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
         // Act
-        await _engine.DeleteAsync(entry);
+        await _engine.DeleteOccurrenceAsync(entry);
 
         // Assert
         capturedExc.Should().NotBeNull();
@@ -759,20 +617,17 @@ public class RecurrenceEngineCrudTests
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
             OverrideId = overrideId,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = originalTime, // Original time
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
-                }
+                StartTime = originalTime, // Original time
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
         // Act
-        await _engine.DeleteAsync(entry);
+        await _engine.DeleteOccurrenceAsync(entry);
 
         // Assert
         _overrideRepo.Verify(r => r.DeleteAsync(
@@ -785,7 +640,7 @@ public class RecurrenceEngineCrudTests
     public async Task DeleteAsync_WithNullEntry_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => _engine.DeleteAsync(null!);
+        var act = () => _engine.DeleteOccurrenceAsync(null!);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentNullException>();
@@ -811,15 +666,12 @@ public class RecurrenceEngineCrudTests
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
             OverrideId = overrideId,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = originalTime,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
-                }
+                StartTime = originalTime,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
@@ -842,12 +694,12 @@ public class RecurrenceEngineCrudTests
             ResourcePath = TestResourcePath,
             Type = TestType,
             TimeZone = TestTimeZone,
-            RecurrenceId = recurrenceId
-            // No RecurrenceOccurrenceDetails = it's a recurrence pattern
+            RecurrenceId = recurrenceId,
+            EntryType = CalendarEntryType.Recurrence
         };
 
         // Act
-        var act = () => _engine.RestoreAsync(entry);
+        var act = async () => await _engine.RestoreAsync(entry);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -865,11 +717,12 @@ public class RecurrenceEngineCrudTests
             ResourcePath = TestResourcePath,
             Type = TestType,
             TimeZone = TestTimeZone,
-            OccurrenceId = occurrenceId
+            OccurrenceId = occurrenceId,
+            EntryType = CalendarEntryType.Standalone
         };
 
         // Act
-        var act = () => _engine.RestoreAsync(entry);
+        var act = async () => await _engine.RestoreAsync(entry);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -889,15 +742,12 @@ public class RecurrenceEngineCrudTests
             TimeZone = TestTimeZone,
             RecurrenceId = recurrenceId,
             // No OverrideId
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrenceId,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = DateTime.UtcNow,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
-                }
+                StartTime = DateTime.UtcNow,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
@@ -922,38 +772,6 @@ public class RecurrenceEngineCrudTests
     #endregion
 
     #region Helper Methods
-
-    private static RecurrenceCreate CreateValidRecurrenceRequest(
-        string? type = null,
-        string? rrule = null,
-        string? timeZone = null)
-    {
-        return new RecurrenceCreate
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = type ?? TestType,
-            StartTime = new DateTime(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc),
-            Duration = TimeSpan.FromHours(1),
-            RRule = rrule ?? "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20251231T235959Z",
-            TimeZone = timeZone ?? TestTimeZone,
-            Extensions = new Dictionary<string, string> { ["key"] = "value" }
-        };
-    }
-
-    private static OccurrenceCreate CreateValidOccurrenceRequest(TimeSpan? duration = null)
-    {
-        return new OccurrenceCreate
-        {
-            Organization = TestOrganization,
-            ResourcePath = TestResourcePath,
-            Type = TestType,
-            StartTime = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
-            Duration = duration ?? TimeSpan.FromMinutes(30),
-            TimeZone = TestTimeZone,
-            Extensions = new Dictionary<string, string> { ["meeting"] = "standup" }
-        };
-    }
 
     private static Recurrence CreateRecurrence(Guid id)
     {

@@ -58,23 +58,38 @@ public class CalendarService(IRecurrenceEngine engine)
 ## Quick Example
 
 ```csharp
+using Ical.Net.DataTypes;
+using RecurringThings;
+
+// Build a recurrence pattern using Ical.Net
+var pattern = new RecurrencePattern
+{
+    Frequency = FrequencyType.Weekly,
+    Until = new CalDateTime(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Local).ToUniversalTime())
+};
+pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
+
 // Create a weekly recurring meeting
 // Note: RecurrenceEndTime is automatically extracted from the RRule UNTIL clause
-await engine.CreateRecurrenceAsync(new RecurrenceCreate
-{
-    Organization = "tenant1",
-    ResourcePath = "user123/calendar",
-    Type = "meeting",
-    StartTime = new DateTime(2025, 1, 6, 14, 0, 0, DateTimeKind.Utc), // Or DateTime.Now for local time
-    Duration = TimeSpan.FromHours(1),
-    RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z",
-    TimeZone = "America/New_York"
-});
+await engine.CreateRecurrenceAsync(
+    organization: "tenant1",
+    resourcePath: "user123/calendar",
+    type: "meeting",
+    startTime: DateTime.Now,
+    duration: TimeSpan.FromHours(1),
+    rrule: pattern.ToString(),
+    timeZone: "America/New_York");
 
-// Query entries in a date range
-await foreach (var entry in engine.GetAsync("tenant1", "user123/calendar", start, end, null))
+// Query occurrences in a date range
+await foreach (var entry in engine.GetOccurrencesAsync("tenant1", "user123/calendar", start, end, null))
 {
-    Console.WriteLine($"{entry.Type}: {entry.StartTime}");
+    Console.WriteLine($"{entry.Type}: {entry.StartTime} ({entry.EntryType})");
+}
+
+// Query recurrence patterns in a date range
+await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calendar", start, end, null))
+{
+    Console.WriteLine($"Recurrence: {entry.RecurrenceDetails?.RRule}");
 }
 ```
 
