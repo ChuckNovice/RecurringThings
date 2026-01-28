@@ -70,7 +70,6 @@ var pattern = new RecurrencePattern
 pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
 
 // Create a weekly recurring meeting
-// Note: RecurrenceEndTime is automatically extracted from the RRule UNTIL clause
 await engine.CreateRecurrenceAsync(
     organization: "tenant1",
     resourcePath: "user123/calendar",
@@ -81,13 +80,13 @@ await engine.CreateRecurrenceAsync(
     timeZone: "America/New_York");
 
 // Query occurrences in a date range
-await foreach (var entry in engine.GetOccurrencesAsync("tenant1", "user123/calendar", start, end, null))
+await foreach (var entry in engine.GetOccurrencesAsync("tenant1", "user123/calendar", start, end))
 {
     Console.WriteLine($"{entry.Type}: {entry.StartTime} ({entry.EntryType})");
 }
 
 // Query recurrence patterns in a date range
-await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calendar", start, end, null))
+await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calendar", start, end))
 {
     Console.WriteLine($"Recurrence: {entry.RecurrenceDetails?.RRule}");
 }
