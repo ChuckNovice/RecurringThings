@@ -401,10 +401,10 @@ public class RecurrenceEngineCrudTests
             RecurrenceId = recurrenceId,
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = originalStartTime,
-                    Duration = recurrence.Duration,
-                    Extensions = recurrence.Extensions
+            {
+                StartTime = originalStartTime,
+                Duration = recurrence.Duration,
+                Extensions = recurrence.Extensions
             }
         };
 
@@ -454,10 +454,10 @@ public class RecurrenceEngineCrudTests
             OverrideId = overrideId,
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = existingOverride.OriginalTimeUtc,
-                    Duration = existingOverride.OriginalDuration,
-                    Extensions = existingOverride.OriginalExtensions
+            {
+                StartTime = existingOverride.OriginalTimeUtc,
+                Duration = existingOverride.OriginalDuration,
+                Extensions = existingOverride.OriginalExtensions
             }
         };
 
@@ -578,10 +578,10 @@ public class RecurrenceEngineCrudTests
             RecurrenceId = recurrenceId,
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = originalTime,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
+            {
+                StartTime = originalTime,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
@@ -619,10 +619,10 @@ public class RecurrenceEngineCrudTests
             OverrideId = overrideId,
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = originalTime, // Original time
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
+            {
+                StartTime = originalTime, // Original time
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
@@ -668,10 +668,10 @@ public class RecurrenceEngineCrudTests
             OverrideId = overrideId,
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = originalTime,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
+            {
+                StartTime = originalTime,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
@@ -744,10 +744,10 @@ public class RecurrenceEngineCrudTests
             // No OverrideId
             EntryType = CalendarEntryType.Virtualized,
             Original = new OriginalDetails
-                {
-                    StartTime = DateTime.UtcNow,
-                    Duration = TimeSpan.FromHours(1),
-                    Extensions = null
+            {
+                StartTime = DateTime.UtcNow,
+                Duration = TimeSpan.FromHours(1),
+                Extensions = null
             }
         };
 
