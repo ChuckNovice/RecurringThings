@@ -2,7 +2,6 @@ namespace RecurringThings.MongoDB.Documents;
 
 using System;
 using System.Collections.Generic;
-using global::MongoDB.Bson.Serialization.Attributes;
 using RecurringThings.Domain;
 using RecurringThings.Options;
 
@@ -18,17 +17,18 @@ using RecurringThings.Options;
 /// - "override": A modified occurrence from a recurrence
 /// </para>
 /// <para>
-/// Fields are mapped to camelCase for MongoDB conventions.
-/// Null properties are automatically ignored during serialization.
-/// Guid properties are serialized as strings.
+/// Serialization is configured via conventions (no attributes required):
+/// - The Id property is mapped as the document _id using NamedIdMemberConvention
+/// - All Guid properties are serialized as strings using GuidStringRepresentationConvention
+/// - Fields are mapped to camelCase using CamelCaseElementNameConvention
+/// - Null properties are automatically ignored using IgnoreIfNullConvention
 /// </para>
 /// </remarks>
 public sealed class RecurringThingDocument
 {
     /// <summary>
-    /// Gets or sets the unique identifier.
+    /// Gets or sets the unique identifier (maps to MongoDB _id field).
     /// </summary>
-    [BsonId]
     public Guid Id { get; set; }
 
     /// <summary>

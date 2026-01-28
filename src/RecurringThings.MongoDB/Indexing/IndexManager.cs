@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using global::MongoDB.Driver;
+using RecurringThings.MongoDB.Configuration;
 using RecurringThings.MongoDB.Documents;
 
 /// <summary>
@@ -40,6 +41,7 @@ public sealed class IndexManager
     public IndexManager(IMongoDatabase database, string collectionName = "recurring_things")
     {
         ArgumentNullException.ThrowIfNull(database);
+        MongoDbInitializer.EnsureInitialized();
         _collection = database.GetCollection<RecurringThingDocument>(collectionName);
     }
 

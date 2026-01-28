@@ -1,10 +1,6 @@
 namespace RecurringThings.MongoDB.Configuration;
 
 using System;
-using global::MongoDB.Bson;
-using global::MongoDB.Bson.Serialization;
-using global::MongoDB.Bson.Serialization.Conventions;
-using global::MongoDB.Bson.Serialization.Serializers;
 using global::MongoDB.Driver;
 using Microsoft.Extensions.DependencyInjection;
 using RecurringThings.Configuration;
@@ -47,19 +43,8 @@ public static class RecurringThingsBuilderExtensions
         configure(options);
         options.Validate();
 
-        // Register conventions for RecurringThings documents
-        var conventionPack = new ConventionPack
-        {
-            new CamelCaseElementNameConvention(),
-            new IgnoreIfNullConvention(true)
-        };
-        ConventionRegistry.Register(
-            "RecurringThingsConventions",
-            conventionPack,
-            t => t.FullName?.StartsWith("RecurringThings", StringComparison.Ordinal) == true);
-
-        // Register Guid serializer to use string representation
-        BsonSerializer.TryRegisterSerializer(new GuidSerializer(BsonType.String));
+        // Ensure MongoDB conventions are registered (idempotent)
+        MongoDbInitializer.EnsureInitialized();
 
         // Mark MongoDB as configured
         builder.MongoDbConfigured = true;
