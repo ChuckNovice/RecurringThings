@@ -14,7 +14,7 @@ using Transactional.Abstractions;
 /// Occurrence overrides are used to modify specific virtualized occurrences
 /// from a recurrence pattern (e.g., change time, duration, or metadata).
 /// </remarks>
-public interface IOccurrenceOverrideRepository
+internal interface IOccurrenceOverrideRepository
 {
     /// <summary>
     /// Creates a new occurrence override.

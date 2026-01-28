@@ -16,7 +16,7 @@ using Transactional.MongoDB;
 /// <summary>
 /// MongoDB implementation of <see cref="IOccurrenceOverrideRepository"/>.
 /// </summary>
-public sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRepository
+internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRepository
 {
     private readonly IMongoCollection<RecurringThingDocument> _collection;
 

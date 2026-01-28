@@ -16,7 +16,7 @@ using System.Collections.Generic;
 /// To change other fields, delete and recreate the recurrence.
 /// </para>
 /// </remarks>
-public sealed class Recurrence
+internal sealed class Recurrence
 {
     /// <summary>
     /// Gets the unique identifier for this recurrence.

@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RecurringThings.Domain;
 using RecurringThings.Models;
 using Transactional.Abstractions;
 
@@ -118,7 +117,7 @@ public interface IRecurrenceEngine
     /// <param name="extensions">Optional user-defined key-value metadata.</param>
     /// <param name="transactionContext">Optional transaction context.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The created <see cref="Recurrence"/>.</returns>
+    /// <returns>A <see cref="CalendarEntry"/> representing the created recurrence with <see cref="CalendarEntryType.Recurrence"/>.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown when validation fails (invalid RRule, missing UNTIL, COUNT used, field length violations, etc.).
     /// </exception>
@@ -131,7 +130,7 @@ public interface IRecurrenceEngine
     /// };
     /// pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
     ///
-    /// var recurrence = await engine.CreateRecurrenceAsync(
+    /// var entry = await engine.CreateRecurrenceAsync(
     ///     organization: "tenant1",
     ///     resourcePath: "user123/calendar",
     ///     type: "appointment",
@@ -141,7 +140,7 @@ public interface IRecurrenceEngine
     ///     timeZone: "America/New_York");
     /// </code>
     /// </example>
-    Task<Recurrence> CreateRecurrenceAsync(
+    Task<CalendarEntry> CreateRecurrenceAsync(
         string organization,
         string resourcePath,
         string type,
@@ -165,7 +164,7 @@ public interface IRecurrenceEngine
     /// <param name="extensions">Optional user-defined key-value metadata.</param>
     /// <param name="transactionContext">Optional transaction context.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The created <see cref="Occurrence"/>.</returns>
+    /// <returns>A <see cref="CalendarEntry"/> representing the created occurrence with <see cref="CalendarEntryType.Standalone"/>.</returns>
     /// <remarks>
     /// EndTime is automatically computed as StartTime + Duration.
     /// </remarks>
@@ -174,7 +173,7 @@ public interface IRecurrenceEngine
     /// </exception>
     /// <example>
     /// <code>
-    /// var occurrence = await engine.CreateOccurrenceAsync(
+    /// var entry = await engine.CreateOccurrenceAsync(
     ///     organization: "tenant1",
     ///     resourcePath: "user123/calendar",
     ///     type: "meeting",
@@ -183,7 +182,7 @@ public interface IRecurrenceEngine
     ///     timeZone: "America/New_York");
     /// </code>
     /// </example>
-    Task<Occurrence> CreateOccurrenceAsync(
+    Task<CalendarEntry> CreateOccurrenceAsync(
         string organization,
         string resourcePath,
         string type,

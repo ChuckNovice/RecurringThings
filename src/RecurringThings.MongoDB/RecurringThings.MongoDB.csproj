@@ -8,9 +8,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="RecurringThings.MongoDB.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <PackageId>RecurringThings.MongoDB</PackageId>
-    <Authors>RecurringThings Contributors</Authors>
+    <Authors>Miguel Tremblay</Authors>
     <Description>MongoDB persistence provider for RecurringThings library.</Description>
     <RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

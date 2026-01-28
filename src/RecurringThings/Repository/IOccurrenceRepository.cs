@@ -10,7 +10,7 @@ using Transactional.Abstractions;
 /// <summary>
 /// Repository interface for managing standalone <see cref="Occurrence"/> entities.
 /// </summary>
-public interface IOccurrenceRepository
+internal interface IOccurrenceRepository
 {
     /// <summary>
     /// Creates a new standalone occurrence.

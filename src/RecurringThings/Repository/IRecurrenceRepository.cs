@@ -10,7 +10,7 @@ using Transactional.Abstractions;
 /// <summary>
 /// Repository interface for managing <see cref="Recurrence"/> entities.
 /// </summary>
-public interface IRecurrenceRepository
+internal interface IRecurrenceRepository
 {
     /// <summary>
     /// Creates a new recurrence.

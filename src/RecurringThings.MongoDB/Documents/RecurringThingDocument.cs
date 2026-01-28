@@ -203,7 +203,7 @@ public static class DocumentTypes
 /// <summary>
 /// Provides mapping methods between domain entities and MongoDB documents.
 /// </summary>
-public static class DocumentMapper
+internal static class DocumentMapper
 {
     /// <summary>
     /// Converts a <see cref="RecurringThingDocument"/> to a <see cref="Recurrence"/>.

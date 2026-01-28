@@ -21,7 +21,7 @@ public static partial class Validator
     /// <exception cref="InvalidOperationException">
     /// Thrown when the child entity has a different Organization or ResourcePath than the parent.
     /// </exception>
-    public static void ValidateTenantScope(
+    internal static void ValidateTenantScope(
         Recurrence parentRecurrence,
         string childOrganization,
         string childResourcePath)

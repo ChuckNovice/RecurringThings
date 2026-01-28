@@ -14,7 +14,7 @@ using Transactional.Abstractions;
 /// Occurrence exceptions are used to cancel specific virtualized occurrences
 /// from a recurrence pattern without deleting the entire recurrence.
 /// </remarks>
-public interface IOccurrenceExceptionRepository
+internal interface IOccurrenceExceptionRepository
 {
     /// <summary>
     /// Creates a new occurrence exception.
