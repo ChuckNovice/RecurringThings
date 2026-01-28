@@ -69,7 +69,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         string resourcePath,
         DateTime start,
         DateTime end,
-        string[]? types,
+        string[]? types = null,
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -945,7 +945,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         string resourcePath,
         DateTime start,
         DateTime end,
-        string[]? types,
+        string[]? types = null,
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

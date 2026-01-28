@@ -65,7 +65,7 @@ public interface IRecurrenceEngine
         string resourcePath,
         DateTime start,
         DateTime end,
-        string[]? types,
+        string[]? types = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default);
 
@@ -101,7 +101,7 @@ public interface IRecurrenceEngine
         string resourcePath,
         DateTime start,
         DateTime end,
-        string[]? types,
+        string[]? types = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default);
 
