@@ -1,6 +1,7 @@
 namespace RecurringThings.Benchmarks.Infrastructure;
 
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using RecurringThings.Configuration;
 using RecurringThings.Engine;
 using RecurringThings.MongoDB.Configuration;
@@ -25,6 +26,7 @@ public static class ProviderFactory
 {
     // Static database names to ensure same DB is used across benchmark runs
     private static readonly string MongoDatabaseName = $"rt_bench_{DateTime.UtcNow:yyyyMMdd}";
+    private static readonly string PostgresDatabaseName = $"rt_bench_{DateTime.UtcNow:yyyyMMdd}";
 
     private static bool _mongoInitialized;
     private static bool _postgresInitialized;
@@ -61,6 +63,9 @@ public static class ProviderFactory
             case BenchmarkProvider.PostgreSQL:
                 if (!_postgresInitialized)
                 {
+                    // Create the benchmark database if it doesn't exist
+                    await EnsurePostgresDatabaseExistsAsync();
+
                     // PostgreSQL migrations run via EF Core on first DbContext use
                     var engine = CreateEngine(provider);
                     // Trigger migrations by making a simple query
@@ -71,7 +76,7 @@ public static class ProviderFactory
                     }
 
                     _postgresInitialized = true;
-                    Console.WriteLine("  PostgreSQL database ready");
+                    Console.WriteLine($"  PostgreSQL database: {PostgresDatabaseName}");
                 }
 
                 break;
@@ -103,7 +108,7 @@ public static class ProviderFactory
                 case BenchmarkProvider.PostgreSQL:
                     builder.UsePostgreSql(options =>
                     {
-                        options.ConnectionString = GetPostgresConnectionString();
+                        options.ConnectionString = GetPostgresBenchmarkConnectionString();
                     });
                     break;
             }
@@ -138,4 +143,47 @@ public static class ProviderFactory
     /// </summary>
     public static bool IsPostgresAvailable() =>
         !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING"));
+
+    /// <summary>
+    /// Gets the PostgreSQL connection string with the benchmark database name.
+    /// </summary>
+    private static string GetPostgresBenchmarkConnectionString()
+    {
+        var baseConnectionString = GetPostgresConnectionString();
+        var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+        {
+            Database = PostgresDatabaseName
+        };
+        return builder.ConnectionString;
+    }
+
+    /// <summary>
+    /// Creates the benchmark database if it doesn't exist.
+    /// </summary>
+    private static async Task EnsurePostgresDatabaseExistsAsync()
+    {
+        var baseConnectionString = GetPostgresConnectionString();
+        var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+        {
+            Database = "postgres" // Connect to default database to create the benchmark database
+        };
+
+        await using var connection = new NpgsqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+
+        // Check if database exists
+        await using var checkCmd = new NpgsqlCommand(
+            $"SELECT 1 FROM pg_database WHERE datname = '{PostgresDatabaseName}'",
+            connection);
+        var exists = await checkCmd.ExecuteScalarAsync() != null;
+
+        if (!exists)
+        {
+            await using var createCmd = new NpgsqlCommand(
+                $"CREATE DATABASE \"{PostgresDatabaseName}\"",
+                connection);
+            await createCmd.ExecuteNonQueryAsync();
+            Console.WriteLine($"  Created PostgreSQL database: {PostgresDatabaseName}");
+        }
+    }
 }
