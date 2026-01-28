@@ -5,14 +5,12 @@
 MongoDB persistence provider for [RecurringThings](../../README.md).
 
 ## Installation
-
 ```bash
 dotnet add package RecurringThings
 dotnet add package RecurringThings.MongoDB
 ```
 
 ## Configuration
-
 ```csharp
 using RecurringThings.Configuration;
 using RecurringThings.MongoDB.Configuration;
@@ -26,10 +24,13 @@ services.AddRecurringThings(builder =>
     }));
 ```
 
+## Sharding Considerations
+
+All queries issued by this provider filter by `Organization` first, making it an ideal shard key for MongoDB sharded clusters. Architects and DBAs should note this when designing their sharding strategy.
+
 ## Integration Tests
 
 Set the environment variable before running integration tests:
-
 ```bash
 export MONGODB_CONNECTION_STRING="mongodb://localhost:27017"
 dotnet test --filter 'Category=Integration'

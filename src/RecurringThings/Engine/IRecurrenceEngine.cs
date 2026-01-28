@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using RecurringThings.Exceptions;
 using RecurringThings.Models;
+using RecurringThings.Options;
 using Transactional.Abstractions;
 
 /// <summary>
@@ -115,11 +117,21 @@ public interface IRecurrenceEngine
     /// <param name="rrule">The RFC 5545 recurrence rule. Must use UNTIL in UTC (Z suffix); COUNT is not supported.</param>
     /// <param name="timeZone">The IANA time zone identifier (e.g., "America/New_York").</param>
     /// <param name="extensions">Optional user-defined key-value metadata.</param>
+    /// <param name="options">
+    /// Optional options for recurrence creation. Controls behavior for monthly recurrences
+    /// where the specified day doesn't exist in all months (e.g., 31st in April).
+    /// </param>
     /// <param name="transactionContext">Optional transaction context.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A <see cref="CalendarEntry"/> representing the created recurrence with <see cref="CalendarEntryType.Recurrence"/>.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown when validation fails (invalid RRule, missing UNTIL, COUNT used, field length violations, etc.).
+    /// </exception>
+    /// <exception cref="MonthDayOutOfBoundsException">
+    /// Thrown when the RRule specifies a monthly recurrence with a day that doesn't exist in all months
+    /// within the recurrence range, and no <paramref name="options"/> are provided or
+    /// <see cref="CreateRecurrenceOptions.OutOfBoundsMonthBehavior"/> is <see cref="MonthDayOutOfBoundsStrategy.Throw"/>.
+    /// The exception contains the affected months, allowing the caller to prompt the user for a choice.
     /// </exception>
     /// <example>
     /// <code>
@@ -149,6 +161,7 @@ public interface IRecurrenceEngine
         string rrule,
         string timeZone,
         Dictionary<string, string>? extensions = null,
+        CreateRecurrenceOptions? options = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default);
 

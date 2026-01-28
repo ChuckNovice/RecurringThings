@@ -4,6 +4,7 @@ namespace RecurringThings.PostgreSQL.Migrations;
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RecurringThings.PostgreSQL.Data;
@@ -11,9 +12,11 @@ using RecurringThings.PostgreSQL.Data;
 #nullable disable
 
 [DbContext(typeof(RecurringThingsDbContext))]
-partial class RecurringThingsDbContextModelSnapshot : ModelSnapshot
+[Migration("20260127200000_AddMonthDayBehavior")]
+partial class AddMonthDayBehavior
 {
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    /// <inheritdoc />
+    protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder
