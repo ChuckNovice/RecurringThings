@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Domain;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using RecurringThings.Domain;
 using Xunit;
 
@@ -32,15 +31,15 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.Id.Should().Be(id);
-        recurrence.Organization.Should().Be("org1");
-        recurrence.ResourcePath.Should().Be("user/calendar");
-        recurrence.Type.Should().Be("appointment");
-        recurrence.StartTime.Should().Be(startTime);
-        recurrence.Duration.Should().Be(duration);
-        recurrence.RecurrenceEndTime.Should().Be(endTime);
-        recurrence.RRule.Should().Be("FREQ=DAILY;UNTIL=20261231T235959Z");
-        recurrence.TimeZone.Should().Be("America/New_York");
+        Assert.Equal(id, recurrence.Id);
+        Assert.Equal("org1", recurrence.Organization);
+        Assert.Equal("user/calendar", recurrence.ResourcePath);
+        Assert.Equal("appointment", recurrence.Type);
+        Assert.Equal(startTime, recurrence.StartTime);
+        Assert.Equal(duration, recurrence.Duration);
+        Assert.Equal(endTime, recurrence.RecurrenceEndTime);
+        Assert.Equal("FREQ=DAILY;UNTIL=20261231T235959Z", recurrence.RRule);
+        Assert.Equal("America/New_York", recurrence.TimeZone);
     }
 
     [Fact]
@@ -61,7 +60,7 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.Organization.Should().BeEmpty();
+        Assert.Empty(recurrence.Organization);
     }
 
     [Fact]
@@ -82,7 +81,7 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.ResourcePath.Should().BeEmpty();
+        Assert.Empty(recurrence.ResourcePath);
     }
 
     [Fact]
@@ -106,7 +105,7 @@ public class RecurrenceTests
         recurrence.Duration = TimeSpan.FromHours(2);
 
         // Assert
-        recurrence.Duration.Should().Be(TimeSpan.FromHours(2));
+        Assert.Equal(TimeSpan.FromHours(2), recurrence.Duration);
     }
 
     [Fact]
@@ -127,7 +126,7 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.Extensions.Should().BeNull();
+        Assert.Null(recurrence.Extensions);
     }
 
     [Fact]
@@ -156,9 +155,9 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.Extensions.Should().HaveCount(2);
-        recurrence.Extensions.Should().ContainKey("key2");
-        recurrence.Extensions.Should().ContainKey("key3");
+        Assert.Equal(2, recurrence.Extensions.Count);
+        Assert.True(recurrence.Extensions.ContainsKey("key2"));
+        Assert.True(recurrence.Extensions.ContainsKey("key3"));
     }
 
     [Fact]
@@ -183,7 +182,7 @@ public class RecurrenceTests
         recurrence.Extensions = null;
 
         // Assert
-        recurrence.Extensions.Should().BeNull();
+        Assert.Null(recurrence.Extensions);
     }
 
     [Fact]
@@ -213,7 +212,7 @@ public class RecurrenceTests
         };
 
         // Assert
-        recurrence.Extensions.Should().BeEquivalentTo(extensions);
+        Assert.Equivalent(extensions, recurrence.Extensions);
     }
 
     [Fact]
@@ -235,6 +234,6 @@ public class RecurrenceTests
         };
 
         // Assert - Id is init-only, so we just verify it was set correctly
-        recurrence.Id.Should().Be(id);
+        Assert.Equal(id, recurrence.Id);
     }
 }

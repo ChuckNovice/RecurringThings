@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Domain;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using RecurringThings.Domain;
 using Xunit;
 
@@ -28,9 +27,9 @@ public class OccurrenceTests
         occurrence.Initialize(startTime, duration);
 
         // Assert
-        occurrence.StartTime.Should().Be(startTime);
-        occurrence.Duration.Should().Be(duration);
-        occurrence.EndTime.Should().Be(startTime.Add(duration));
+        Assert.Equal(startTime, occurrence.StartTime);
+        Assert.Equal(duration, occurrence.Duration);
+        Assert.Equal(startTime.Add(duration), occurrence.EndTime);
     }
 
     [Fact]
@@ -55,8 +54,8 @@ public class OccurrenceTests
         occurrence.StartTime = newStartTime;
 
         // Assert
-        occurrence.StartTime.Should().Be(newStartTime);
-        occurrence.EndTime.Should().Be(newStartTime.Add(duration));
+        Assert.Equal(newStartTime, occurrence.StartTime);
+        Assert.Equal(newStartTime.Add(duration), occurrence.EndTime);
     }
 
     [Fact]
@@ -81,8 +80,8 @@ public class OccurrenceTests
         occurrence.Duration = newDuration;
 
         // Assert
-        occurrence.Duration.Should().Be(newDuration);
-        occurrence.EndTime.Should().Be(startTime.Add(newDuration));
+        Assert.Equal(newDuration, occurrence.Duration);
+        Assert.Equal(startTime.Add(newDuration), occurrence.EndTime);
     }
 
     [Fact]
@@ -109,9 +108,9 @@ public class OccurrenceTests
         occurrence.Duration = newDuration;
 
         // Assert
-        occurrence.StartTime.Should().Be(newStartTime);
-        occurrence.Duration.Should().Be(newDuration);
-        occurrence.EndTime.Should().Be(newStartTime.Add(newDuration));
+        Assert.Equal(newStartTime, occurrence.StartTime);
+        Assert.Equal(newDuration, occurrence.Duration);
+        Assert.Equal(newStartTime.Add(newDuration), occurrence.EndTime);
     }
 
     [Fact]
@@ -134,7 +133,7 @@ public class OccurrenceTests
         occurrence.Initialize(startTime, duration);
 
         // Assert
-        occurrence.EndTime.Should().Be(occurrence.StartTime);
+        Assert.Equal(occurrence.StartTime, occurrence.EndTime);
     }
 
     [Fact]
@@ -152,7 +151,7 @@ public class OccurrenceTests
         occurrence.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        occurrence.Extensions.Should().BeNull();
+        Assert.Null(occurrence.Extensions);
     }
 
     [Fact]
@@ -177,9 +176,9 @@ public class OccurrenceTests
         };
 
         // Assert
-        occurrence.Extensions.Should().HaveCount(1);
-        occurrence.Extensions.Should().ContainKey("key2");
-        occurrence.Extensions.Should().NotContainKey("key1");
+        Assert.Single(occurrence.Extensions);
+        Assert.True(occurrence.Extensions.ContainsKey("key2"));
+        Assert.False(occurrence.Extensions.ContainsKey("key1"));
     }
 
     [Fact]
@@ -208,15 +207,15 @@ public class OccurrenceTests
         occurrence.Initialize(startTime, duration);
 
         // Assert
-        occurrence.Id.Should().Be(id);
-        occurrence.Organization.Should().Be("acme-corp");
-        occurrence.ResourcePath.Should().Be("team/engineering");
-        occurrence.Type.Should().Be("standup");
-        occurrence.TimeZone.Should().Be("Europe/London");
-        occurrence.StartTime.Should().Be(startTime);
-        occurrence.Duration.Should().Be(duration);
-        occurrence.EndTime.Should().Be(new DateTime(2026, 6, 15, 15, 15, 0, DateTimeKind.Utc));
-        occurrence.Extensions.Should().BeEquivalentTo(extensions);
+        Assert.Equal(id, occurrence.Id);
+        Assert.Equal("acme-corp", occurrence.Organization);
+        Assert.Equal("team/engineering", occurrence.ResourcePath);
+        Assert.Equal("standup", occurrence.Type);
+        Assert.Equal("Europe/London", occurrence.TimeZone);
+        Assert.Equal(startTime, occurrence.StartTime);
+        Assert.Equal(duration, occurrence.Duration);
+        Assert.Equal(new DateTime(2026, 6, 15, 15, 15, 0, DateTimeKind.Utc), occurrence.EndTime);
+        Assert.Equivalent(extensions, occurrence.Extensions);
     }
 
     [Fact]
@@ -234,7 +233,7 @@ public class OccurrenceTests
         occurrence.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        occurrence.Organization.Should().BeEmpty();
+        Assert.Empty(occurrence.Organization);
     }
 
     [Fact]
@@ -252,7 +251,7 @@ public class OccurrenceTests
         occurrence.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        occurrence.ResourcePath.Should().BeEmpty();
+        Assert.Empty(occurrence.ResourcePath);
     }
 
     [Fact]
@@ -275,8 +274,8 @@ public class OccurrenceTests
         occurrence.Initialize(newStartTime, newDuration);
 
         // Assert
-        occurrence.StartTime.Should().Be(newStartTime);
-        occurrence.Duration.Should().Be(newDuration);
-        occurrence.EndTime.Should().Be(newStartTime.Add(newDuration));
+        Assert.Equal(newStartTime, occurrence.StartTime);
+        Assert.Equal(newDuration, occurrence.Duration);
+        Assert.Equal(newStartTime.Add(newDuration), occurrence.EndTime);
     }
 }

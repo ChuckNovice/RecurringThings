@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using FluentAssertions;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
@@ -67,95 +66,83 @@ public class RecurrenceEngineCrudTests
             startTime, duration, TestRRule, TestTimeZone, extensions);
 
         // Assert
-        result.Should().NotBeNull();
-        result.RecurrenceId.Should().NotBe(Guid.Empty);
-        result.EntryType.Should().Be(CalendarEntryType.Recurrence);
-        result.Organization.Should().Be(TestOrganization);
-        result.ResourcePath.Should().Be(TestResourcePath);
-        result.Type.Should().Be(TestType);
-        result.StartTime.Should().Be(startTime);
-        result.Duration.Should().Be(duration);
-        result.RecurrenceDetails.Should().NotBeNull();
-        result.RecurrenceDetails!.RRule.Should().Be(TestRRule);
-        result.TimeZone.Should().Be(TestTimeZone);
-        result.Extensions.Should().BeEquivalentTo(extensions);
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.RecurrenceId);
+        Assert.Equal(CalendarEntryType.Recurrence, result.EntryType);
+        Assert.Equal(TestOrganization, result.Organization);
+        Assert.Equal(TestResourcePath, result.ResourcePath);
+        Assert.Equal(TestType, result.Type);
+        Assert.Equal(startTime, result.StartTime);
+        Assert.Equal(duration, result.Duration);
+        Assert.NotNull(result.RecurrenceDetails);
+        Assert.Equal(TestRRule, result.RecurrenceDetails!.RRule);
+        Assert.Equal(TestTimeZone, result.TimeZone);
+        Assert.Equivalent(extensions, result.Extensions);
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithNullOrganization_ThrowsArgumentNullException()
     {
-        // Act
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await _engine.CreateRecurrenceAsync(
             null!, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentNullException>();
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone));
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithEmptyType_ThrowsArgumentException()
     {
-        // Act
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateRecurrenceAsync(
             TestOrganization, TestResourcePath, "",
-            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone);
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, TestTimeZone));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("type");
+        Assert.Equal("type", ex.ParamName);
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithRRuleContainingCount_ThrowsArgumentException()
     {
-        // Act
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateRecurrenceAsync(
             TestOrganization, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;COUNT=10", TestTimeZone);
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;COUNT=10", TestTimeZone));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*COUNT*not supported*");
+        Assert.Contains("COUNT", ex.Message);
+        Assert.Contains("not supported", ex.Message);
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithRRuleMissingUntil_ThrowsArgumentException()
     {
-        // Act
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateRecurrenceAsync(
             TestOrganization, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;BYDAY=MO,TU,WE", TestTimeZone);
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;BYDAY=MO,TU,WE", TestTimeZone));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*UNTIL*");
+        Assert.Contains("UNTIL", ex.Message);
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithNonUtcUntil_ThrowsArgumentException()
     {
         // Act - Missing Z suffix means non-UTC
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateRecurrenceAsync(
             TestOrganization, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;UNTIL=20251231T235959", TestTimeZone);
+            DateTime.UtcNow, TimeSpan.FromHours(1), "FREQ=DAILY;UNTIL=20251231T235959", TestTimeZone));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*UTC*");
+        Assert.Contains("UTC", ex.Message);
     }
 
     [Fact]
     public async Task CreateRecurrenceAsync_WithInvalidTimeZone_ThrowsArgumentException()
     {
-        // Act
-        var act = async () => await _engine.CreateRecurrenceAsync(
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateRecurrenceAsync(
             TestOrganization, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, "Invalid/TimeZone");
+            DateTime.UtcNow, TimeSpan.FromHours(1), TestRRule, "Invalid/TimeZone"));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("timeZone");
+        Assert.Equal("timeZone", ex.ParamName);
     }
 
     [Fact]
@@ -209,38 +196,33 @@ public class RecurrenceEngineCrudTests
             startTime, duration, TestTimeZone);
 
         // Assert
-        result.Should().NotBeNull();
-        result.OccurrenceId.Should().NotBe(Guid.Empty);
-        result.EntryType.Should().Be(CalendarEntryType.Standalone);
-        result.Organization.Should().Be(TestOrganization);
-        result.StartTime.Should().Be(startTime);
-        result.Duration.Should().Be(duration);
-        result.EndTime.Should().Be(expectedEndTime);
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.OccurrenceId);
+        Assert.Equal(CalendarEntryType.Standalone, result.EntryType);
+        Assert.Equal(TestOrganization, result.Organization);
+        Assert.Equal(startTime, result.StartTime);
+        Assert.Equal(duration, result.Duration);
+        Assert.Equal(expectedEndTime, result.EndTime);
     }
 
     [Fact]
     public async Task CreateOccurrenceAsync_WithNullOrganization_ThrowsArgumentNullException()
     {
-        // Act
-        var act = async () => await _engine.CreateOccurrenceAsync(
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await _engine.CreateOccurrenceAsync(
             null!, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.FromMinutes(30), TestTimeZone);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentNullException>();
+            DateTime.UtcNow, TimeSpan.FromMinutes(30), TestTimeZone));
     }
 
     [Fact]
     public async Task CreateOccurrenceAsync_WithZeroDuration_ThrowsArgumentException()
     {
-        // Act
-        var act = async () => await _engine.CreateOccurrenceAsync(
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _engine.CreateOccurrenceAsync(
             TestOrganization, TestResourcePath, TestType,
-            DateTime.UtcNow, TimeSpan.Zero, TestTimeZone);
+            DateTime.UtcNow, TimeSpan.Zero, TestTimeZone));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithParameterName("duration");
+        Assert.Equal("duration", ex.ParamName);
     }
 
     [Fact]
@@ -289,12 +271,10 @@ public class RecurrenceEngineCrudTests
             EntryType = CalendarEntryType.Recurrence
         };
 
-        // Act
-        var act = async () => await _engine.UpdateOccurrenceAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _engine.UpdateOccurrenceAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot update a recurrence pattern*");
+        Assert.Contains("Cannot update a recurrence pattern", ex.Message);
     }
 
     #endregion
@@ -333,9 +313,9 @@ public class RecurrenceEngineCrudTests
         var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
-        result.StartTime.Should().Be(newStartTime);
-        result.Duration.Should().Be(newDuration);
-        result.EndTime.Should().Be(newStartTime + newDuration);
+        Assert.Equal(newStartTime, result.StartTime);
+        Assert.Equal(newDuration, result.Duration);
+        Assert.Equal(newStartTime + newDuration, result.EndTime);
     }
 
     [Fact]
@@ -369,7 +349,7 @@ public class RecurrenceEngineCrudTests
         var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
-        result.Type.Should().Be(newType);
+        Assert.Equal(newType, result.Type);
         _occurrenceRepo.Verify(r => r.UpdateAsync(
             It.Is<Occurrence>(o => o.Type == newType),
             null,
@@ -421,12 +401,12 @@ public class RecurrenceEngineCrudTests
         var result = await _engine.UpdateOccurrenceAsync(entry);
 
         // Assert
-        capturedOverride.Should().NotBeNull();
-        capturedOverride!.RecurrenceId.Should().Be(recurrenceId);
-        capturedOverride.OriginalTimeUtc.Should().Be(originalStartTime);
-        capturedOverride.OriginalDuration.Should().Be(recurrence.Duration);
-        capturedOverride.Duration.Should().Be(newDuration);
-        result.OverrideId.Should().NotBeNull();
+        Assert.NotNull(capturedOverride);
+        Assert.Equal(recurrenceId, capturedOverride!.RecurrenceId);
+        Assert.Equal(originalStartTime, capturedOverride.OriginalTimeUtc);
+        Assert.Equal(recurrence.Duration, capturedOverride.OriginalDuration);
+        Assert.Equal(newDuration, capturedOverride.Duration);
+        Assert.NotNull(result.OverrideId);
     }
 
     [Fact]
@@ -477,7 +457,7 @@ public class RecurrenceEngineCrudTests
         _overrideRepo.Verify(r => r.UpdateAsync(
             It.Is<OccurrenceOverride>(o => o.Duration == newDuration),
             null, default), Times.Once);
-        result.Duration.Should().Be(newDuration);
+        Assert.Equal(newDuration, result.Duration);
     }
 
     #endregion
@@ -487,11 +467,8 @@ public class RecurrenceEngineCrudTests
     [Fact]
     public async Task UpdateAsync_WithNullEntry_ThrowsArgumentNullException()
     {
-        // Act
-        var act = () => _engine.UpdateOccurrenceAsync(null!);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentNullException>();
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _engine.UpdateOccurrenceAsync(null!));
     }
 
     [Fact]
@@ -507,12 +484,10 @@ public class RecurrenceEngineCrudTests
             // No IDs set
         };
 
-        // Act
-        var act = () => _engine.UpdateOccurrenceAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _engine.UpdateOccurrenceAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot determine entry type*");
+        Assert.Contains("Cannot determine entry type", ex.Message);
     }
 
     #endregion
@@ -534,12 +509,10 @@ public class RecurrenceEngineCrudTests
             EntryType = CalendarEntryType.Recurrence
         };
 
-        // Act
-        var act = async () => await _engine.DeleteOccurrenceAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _engine.DeleteOccurrenceAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Use DeleteRecurrenceAsync*");
+        Assert.Contains("Use DeleteRecurrenceAsync", ex.Message);
     }
 
     [Fact]
@@ -598,9 +571,9 @@ public class RecurrenceEngineCrudTests
         await _engine.DeleteOccurrenceAsync(entry);
 
         // Assert
-        capturedExc.Should().NotBeNull();
-        capturedExc!.RecurrenceId.Should().Be(recurrenceId);
-        capturedExc.OriginalTimeUtc.Should().Be(originalTime);
+        Assert.NotNull(capturedExc);
+        Assert.Equal(recurrenceId, capturedExc!.RecurrenceId);
+        Assert.Equal(originalTime, capturedExc.OriginalTimeUtc);
     }
 
     [Fact]
@@ -641,18 +614,15 @@ public class RecurrenceEngineCrudTests
         // Assert
         _overrideRepo.Verify(r => r.DeleteAsync(
             overrideId, TestOrganization, TestResourcePath, null, default), Times.Once);
-        capturedExc.Should().NotBeNull();
-        capturedExc!.OriginalTimeUtc.Should().Be(originalTime); // Exception at original time, not moved time
+        Assert.NotNull(capturedExc);
+        Assert.Equal(originalTime, capturedExc!.OriginalTimeUtc); // Exception at original time, not moved time
     }
 
     [Fact]
     public async Task DeleteAsync_WithNullEntry_ThrowsArgumentNullException()
     {
-        // Act
-        var act = () => _engine.DeleteOccurrenceAsync(null!);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentNullException>();
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _engine.DeleteOccurrenceAsync(null!));
     }
 
     #endregion
@@ -707,12 +677,10 @@ public class RecurrenceEngineCrudTests
             EntryType = CalendarEntryType.Recurrence
         };
 
-        // Act
-        var act = async () => await _engine.RestoreAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _engine.RestoreAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*recurrence pattern*");
+        Assert.Contains("recurrence pattern", ex.Message);
     }
 
     [Fact]
@@ -730,12 +698,10 @@ public class RecurrenceEngineCrudTests
             EntryType = CalendarEntryType.Standalone
         };
 
-        // Act
-        var act = async () => await _engine.RestoreAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _engine.RestoreAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*standalone occurrence*");
+        Assert.Contains("standalone occurrence", ex.Message);
     }
 
     [Fact]
@@ -760,22 +726,17 @@ public class RecurrenceEngineCrudTests
             }
         };
 
-        // Act
-        var act = () => _engine.RestoreAsync(entry);
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _engine.RestoreAsync(entry));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*without an override*");
+        Assert.Contains("without an override", ex.Message);
     }
 
     [Fact]
     public async Task RestoreAsync_WithNullEntry_ThrowsArgumentNullException()
     {
-        // Act
-        var act = () => _engine.RestoreAsync(null!);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentNullException>();
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _engine.RestoreAsync(null!));
     }
 
     #endregion

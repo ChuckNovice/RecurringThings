@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Domain;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using RecurringThings.Domain;
 using Xunit;
 
@@ -27,11 +26,11 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Id.Should().Be(id);
-        exception.Organization.Should().Be("org1");
-        exception.ResourcePath.Should().Be("user/calendar");
-        exception.RecurrenceId.Should().Be(recurrenceId);
-        exception.OriginalTimeUtc.Should().Be(originalTime);
+        Assert.Equal(id, exception.Id);
+        Assert.Equal("org1", exception.Organization);
+        Assert.Equal("user/calendar", exception.ResourcePath);
+        Assert.Equal(recurrenceId, exception.RecurrenceId);
+        Assert.Equal(originalTime, exception.OriginalTimeUtc);
     }
 
     [Fact]
@@ -48,7 +47,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Extensions.Should().BeNull();
+        Assert.Null(exception.Extensions);
     }
 
     [Fact]
@@ -73,9 +72,9 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Extensions.Should().HaveCount(2);
-        exception.Extensions["reason"].Should().Be("Vacation");
-        exception.Extensions["cancelledBy"].Should().Be("user123");
+        Assert.Equal(2, exception.Extensions.Count);
+        Assert.Equal("Vacation", exception.Extensions["reason"]);
+        Assert.Equal("user123", exception.Extensions["cancelledBy"]);
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Organization.Should().BeEmpty();
+        Assert.Empty(exception.Organization);
     }
 
     [Fact]
@@ -109,7 +108,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.ResourcePath.Should().BeEmpty();
+        Assert.Empty(exception.ResourcePath);
     }
 
     [Fact]
@@ -135,7 +134,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Extensions.Should().BeEquivalentTo(extensions);
+        Assert.Equivalent(extensions, exception.Extensions);
     }
 
     [Fact]
@@ -156,7 +155,7 @@ public class OccurrenceExceptionTests
         exception.Extensions = null;
 
         // Assert
-        exception.Extensions.Should().BeNull();
+        Assert.Null(exception.Extensions);
     }
 
     [Fact]
@@ -176,7 +175,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.Id.Should().Be(id);
+        Assert.Equal(id, exception.Id);
     }
 
     [Fact]
@@ -196,7 +195,7 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.RecurrenceId.Should().Be(recurrenceId);
+        Assert.Equal(recurrenceId, exception.RecurrenceId);
     }
 
     [Fact]
@@ -216,6 +215,6 @@ public class OccurrenceExceptionTests
         };
 
         // Assert
-        exception.OriginalTimeUtc.Should().Be(originalTime);
+        Assert.Equal(originalTime, exception.OriginalTimeUtc);
     }
 }

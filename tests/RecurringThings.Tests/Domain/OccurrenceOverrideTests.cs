@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Domain;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using RecurringThings.Domain;
 using Xunit;
 
@@ -30,9 +29,9 @@ public class OccurrenceOverrideTests
         @override.Initialize(startTime, duration);
 
         // Assert
-        @override.StartTime.Should().Be(startTime);
-        @override.Duration.Should().Be(duration);
-        @override.EndTime.Should().Be(startTime.Add(duration));
+        Assert.Equal(startTime, @override.StartTime);
+        Assert.Equal(duration, @override.Duration);
+        Assert.Equal(startTime.Add(duration), @override.EndTime);
     }
 
     [Fact]
@@ -58,8 +57,8 @@ public class OccurrenceOverrideTests
         @override.StartTime = newStartTime;
 
         // Assert
-        @override.StartTime.Should().Be(newStartTime);
-        @override.EndTime.Should().Be(newStartTime.Add(duration));
+        Assert.Equal(newStartTime, @override.StartTime);
+        Assert.Equal(newStartTime.Add(duration), @override.EndTime);
     }
 
     [Fact]
@@ -85,8 +84,8 @@ public class OccurrenceOverrideTests
         @override.Duration = newDuration;
 
         // Assert
-        @override.Duration.Should().Be(newDuration);
-        @override.EndTime.Should().Be(startTime.Add(newDuration));
+        Assert.Equal(newDuration, @override.Duration);
+        Assert.Equal(startTime.Add(newDuration), @override.EndTime);
     }
 
     [Fact]
@@ -114,9 +113,9 @@ public class OccurrenceOverrideTests
         @override.Duration = newDuration;
 
         // Assert
-        @override.StartTime.Should().Be(newStartTime);
-        @override.Duration.Should().Be(newDuration);
-        @override.EndTime.Should().Be(newStartTime.Add(newDuration));
+        Assert.Equal(newStartTime, @override.StartTime);
+        Assert.Equal(newDuration, @override.Duration);
+        Assert.Equal(newStartTime.Add(newDuration), @override.EndTime);
     }
 
     [Fact]
@@ -138,8 +137,8 @@ public class OccurrenceOverrideTests
         @override.Initialize(DateTime.UtcNow, TimeSpan.FromHours(2));
 
         // Assert - OriginalDuration should remain unchanged
-        @override.OriginalDuration.Should().Be(originalDuration);
-        @override.Duration.Should().NotBe(originalDuration);
+        Assert.Equal(originalDuration, @override.OriginalDuration);
+        Assert.NotEqual(originalDuration, @override.Duration);
     }
 
     [Fact]
@@ -167,8 +166,8 @@ public class OccurrenceOverrideTests
         @override.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert - OriginalExtensions should remain unchanged
-        @override.OriginalExtensions.Should().BeEquivalentTo(originalExtensions);
-        @override.Extensions.Should().NotBeEquivalentTo(originalExtensions);
+        Assert.Equivalent(originalExtensions, @override.OriginalExtensions);
+        Assert.NotEqual(originalExtensions, @override.Extensions);
     }
 
     [Fact]
@@ -187,7 +186,7 @@ public class OccurrenceOverrideTests
         @override.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        @override.Extensions.Should().BeNull();
+        Assert.Null(@override.Extensions);
     }
 
     [Fact]
@@ -213,9 +212,9 @@ public class OccurrenceOverrideTests
         };
 
         // Assert
-        @override.Extensions.Should().HaveCount(1);
-        @override.Extensions.Should().ContainKey("key2");
-        @override.Extensions.Should().NotContainKey("key1");
+        Assert.Single(@override.Extensions);
+        Assert.True(@override.Extensions.ContainsKey("key2"));
+        Assert.False(@override.Extensions.ContainsKey("key1"));
     }
 
     [Fact]
@@ -234,7 +233,7 @@ public class OccurrenceOverrideTests
         };
 
         // Assert
-        @override.OriginalExtensions.Should().BeNull();
+        Assert.Null(@override.OriginalExtensions);
     }
 
     [Fact]
@@ -253,7 +252,7 @@ public class OccurrenceOverrideTests
         @override.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        @override.Organization.Should().BeEmpty();
+        Assert.Empty(@override.Organization);
     }
 
     [Fact]
@@ -272,7 +271,7 @@ public class OccurrenceOverrideTests
         @override.Initialize(DateTime.UtcNow, TimeSpan.FromHours(1));
 
         // Assert
-        @override.ResourcePath.Should().BeEmpty();
+        Assert.Empty(@override.ResourcePath);
     }
 
     [Fact]
@@ -296,9 +295,9 @@ public class OccurrenceOverrideTests
         @override.Initialize(newStartTime, newDuration);
 
         // Assert
-        @override.StartTime.Should().Be(newStartTime);
-        @override.Duration.Should().Be(newDuration);
-        @override.EndTime.Should().Be(newStartTime.Add(newDuration));
+        Assert.Equal(newStartTime, @override.StartTime);
+        Assert.Equal(newDuration, @override.Duration);
+        Assert.Equal(newStartTime.Add(newDuration), @override.EndTime);
     }
 
     [Fact]
@@ -321,9 +320,9 @@ public class OccurrenceOverrideTests
         @override.Initialize(newStartTime, TimeSpan.FromHours(1));
 
         // Assert - The occurrence was "moved" from 10:00 to 14:00
-        @override.OriginalTimeUtc.Should().Be(originalTime);
-        @override.StartTime.Should().Be(newStartTime);
-        @override.StartTime.Should().NotBe(@override.OriginalTimeUtc);
+        Assert.Equal(originalTime, @override.OriginalTimeUtc);
+        Assert.Equal(newStartTime, @override.StartTime);
+        Assert.NotEqual(@override.OriginalTimeUtc, @override.StartTime);
     }
 
     [Fact]
@@ -354,16 +353,16 @@ public class OccurrenceOverrideTests
         @override.Initialize(newStartTime, newDuration);
 
         // Assert
-        @override.Id.Should().Be(id);
-        @override.Organization.Should().Be("company");
-        @override.ResourcePath.Should().Be("meetings/team-a");
-        @override.RecurrenceId.Should().Be(recurrenceId);
-        @override.OriginalTimeUtc.Should().Be(originalTime);
-        @override.OriginalDuration.Should().Be(originalDuration);
-        @override.OriginalExtensions.Should().BeEquivalentTo(originalExtensions);
-        @override.StartTime.Should().Be(newStartTime);
-        @override.Duration.Should().Be(newDuration);
-        @override.EndTime.Should().Be(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc));
-        @override.Extensions.Should().BeEquivalentTo(newExtensions);
+        Assert.Equal(id, @override.Id);
+        Assert.Equal("company", @override.Organization);
+        Assert.Equal("meetings/team-a", @override.ResourcePath);
+        Assert.Equal(recurrenceId, @override.RecurrenceId);
+        Assert.Equal(originalTime, @override.OriginalTimeUtc);
+        Assert.Equal(originalDuration, @override.OriginalDuration);
+        Assert.Equivalent(originalExtensions, @override.OriginalExtensions);
+        Assert.Equal(newStartTime, @override.StartTime);
+        Assert.Equal(newDuration, @override.Duration);
+        Assert.Equal(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), @override.EndTime);
+        Assert.Equivalent(newExtensions, @override.Extensions);
     }
 }
