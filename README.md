@@ -110,6 +110,24 @@ await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calen
 | MongoDB | [RecurringThings.MongoDB](src/RecurringThings.MongoDB/README.md) |
 | PostgreSQL | [RecurringThings.PostgreSQL](src/RecurringThings.PostgreSQL/README.md) |
 
+## Benchmarking
+
+Run benchmarks locally against MongoDB and/or PostgreSQL:
+
+```bash
+# Set connection strings (PowerShell)
+$env:MONGODB_CONNECTION_STRING = "mongodb://localhost:27017"
+$env:POSTGRES_CONNECTION_STRING = "Host=localhost;Database=postgres;Username=postgres;Password=password"
+
+# Run all benchmarks
+dotnet run -c Release --project benchmarks/RecurringThings.Benchmarks
+
+# Run specific benchmark class
+dotnet run -c Release --project benchmarks/RecurringThings.Benchmarks -- --filter *QueryBenchmarks*
+```
+
+Results are generated in `./BenchmarkResults/` including HTML reports and PNG charts.
+
 ## License
 
 Apache 2.0 - see [LICENSE](LICENSE)
