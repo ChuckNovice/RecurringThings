@@ -6,13 +6,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using FluentValidation;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
 using RecurringThings.Models;
 using RecurringThings.Repository;
-using RecurringThings.Validation.Validators;
 using Transactional.Abstractions;
 using Xunit;
 
@@ -22,8 +20,6 @@ public class RecurrenceEngineTests
     private readonly Mock<IOccurrenceRepository> _occurrenceRepo;
     private readonly Mock<IOccurrenceExceptionRepository> _exceptionRepo;
     private readonly Mock<IOccurrenceOverrideRepository> _overrideRepo;
-    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
-    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
     private readonly RecurrenceEngine _engine;
 
     private const string TestOrganization = "test-org";
@@ -37,8 +33,6 @@ public class RecurrenceEngineTests
         _occurrenceRepo = new Mock<IOccurrenceRepository>();
         _exceptionRepo = new Mock<IOccurrenceExceptionRepository>();
         _overrideRepo = new Mock<IOccurrenceOverrideRepository>();
-        _recurrenceCreateValidator = new RecurrenceCreateValidator();
-        _occurrenceCreateValidator = new OccurrenceCreateValidator();
 
         // Default empty results
         SetupEmptyRepositories();
@@ -47,9 +41,7 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
+            _overrideRepo.Object);
     }
 
     #region Constructor Tests
@@ -61,9 +53,7 @@ public class RecurrenceEngineTests
             null!,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
+            _overrideRepo.Object);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("recurrenceRepository");
@@ -76,9 +66,7 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             null!,
             _exceptionRepo.Object,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
+            _overrideRepo.Object);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("occurrenceRepository");
@@ -91,9 +79,7 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             null!,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
+            _overrideRepo.Object);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("exceptionRepository");
@@ -106,42 +92,10 @@ public class RecurrenceEngineTests
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            null!,
-            _recurrenceCreateValidator,
-            _occurrenceCreateValidator);
-
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("overrideRepository");
-    }
-
-    [Fact]
-    public void Constructor_WithNullRecurrenceCreateValidator_ThrowsArgumentNullException()
-    {
-        var act = () => new RecurrenceEngine(
-            _recurrenceRepo.Object,
-            _occurrenceRepo.Object,
-            _exceptionRepo.Object,
-            _overrideRepo.Object,
-            null!,
-            _occurrenceCreateValidator);
-
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("recurrenceCreateValidator");
-    }
-
-    [Fact]
-    public void Constructor_WithNullOccurrenceCreateValidator_ThrowsArgumentNullException()
-    {
-        var act = () => new RecurrenceEngine(
-            _recurrenceRepo.Object,
-            _occurrenceRepo.Object,
-            _exceptionRepo.Object,
-            _overrideRepo.Object,
-            _recurrenceCreateValidator,
             null!);
 
         act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("occurrenceCreateValidator");
+            .WithParameterName("overrideRepository");
     }
 
     #endregion
@@ -179,8 +133,8 @@ public class RecurrenceEngineTests
             r.Duration.Should().Be(duration);
             r.Type.Should().Be(TestType);
             r.TimeZone.Should().Be(TestTimeZone);
-            r.RecurrenceOccurrenceDetails.Should().NotBeNull();
-            r.RecurrenceOccurrenceDetails!.RecurrenceId.Should().Be(recurrenceId);
+            r.EntryType.Should().Be(CalendarEntryType.Virtualized);
+            r.Original.Should().NotBeNull();
         });
     }
 
@@ -421,9 +375,9 @@ public class RecurrenceEngineTests
         overriddenEntry.StartTime.Hour.Should().Be(14);
         overriddenEntry.Duration.Should().Be(TimeSpan.FromHours(2));
         overriddenEntry.Extensions.Should().ContainKey("modified");
-        overriddenEntry.RecurrenceOccurrenceDetails!.Original.Should().NotBeNull();
-        overriddenEntry.RecurrenceOccurrenceDetails.Original!.StartTime.Should().Be(new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc));
-        overriddenEntry.RecurrenceOccurrenceDetails.Original!.Duration.Should().Be(duration);
+        overriddenEntry.Original.Should().NotBeNull();
+        overriddenEntry.Original!.StartTime.Should().Be(new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc));
+        overriddenEntry.Original!.Duration.Should().Be(duration);
     }
 
     [Fact]
@@ -562,7 +516,7 @@ public class RecurrenceEngineTests
 
         var standaloneEntry = results.Single(r => r.OccurrenceId == occurrenceId);
         standaloneEntry.RecurrenceId.Should().BeNull();
-        standaloneEntry.RecurrenceOccurrenceDetails.Should().BeNull();
+        standaloneEntry.EntryType.Should().Be(CalendarEntryType.Standalone);
         standaloneEntry.StartTime.Hour.Should().Be(15);
     }
 
@@ -826,13 +780,13 @@ public class RecurrenceEngineTests
         entry.OccurrenceId.Should().BeNull();
         entry.OverrideId.Should().BeNull();
         entry.ExceptionId.Should().BeNull();
-        entry.RecurrenceDetails.Should().BeNull();
-        entry.RecurrenceOccurrenceDetails.Should().NotBeNull();
-        entry.RecurrenceOccurrenceDetails!.RecurrenceId.Should().Be(recurrenceId);
-        entry.RecurrenceOccurrenceDetails.Original.Should().NotBeNull();
-        entry.RecurrenceOccurrenceDetails.Original!.StartTime.Should().Be(startTime);
-        entry.RecurrenceOccurrenceDetails.Original.Duration.Should().Be(duration);
-        entry.RecurrenceOccurrenceDetails.Original.Extensions.Should().BeEquivalentTo(extensions);
+        entry.EntryType.Should().Be(CalendarEntryType.Virtualized);
+        entry.RecurrenceDetails.Should().NotBeNull();
+        entry.RecurrenceDetails!.RRule.Should().NotBeNullOrEmpty();
+        entry.Original.Should().NotBeNull();
+        entry.Original!.StartTime.Should().Be(startTime);
+        entry.Original.Duration.Should().Be(duration);
+        entry.Original.Extensions.Should().BeEquivalentTo(extensions);
     }
 
     #endregion
@@ -968,7 +922,7 @@ public class RecurrenceEngineTests
         string[]? types = null)
     {
         var results = new List<CalendarEntry>();
-        await foreach (var entry in _engine.GetAsync(
+        await foreach (var entry in _engine.GetOccurrencesAsync(
             TestOrganization,
             TestResourcePath,
             start,

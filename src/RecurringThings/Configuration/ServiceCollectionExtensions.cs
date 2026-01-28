@@ -65,7 +65,7 @@ public static class ServiceCollectionExtensions
         builder.Validate();
 
         // Register FluentValidation validators from the assembly (including internal validators)
-        services.AddValidatorsFromAssemblyContaining<RecurrenceCreateValidator>(
+        services.AddValidatorsFromAssemblyContaining<OccurrenceExceptionValidator>(
             ServiceLifetime.Scoped,
             includeInternalTypes: true);
 

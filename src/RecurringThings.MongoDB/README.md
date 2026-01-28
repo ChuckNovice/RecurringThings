@@ -70,26 +70,34 @@ public class CalendarService(IRecurrenceEngine engine, IMongoTransactionManager 
 ### Basic Setup
 
 ```csharp
+using Ical.Net.DataTypes;
+
 public class CalendarService(IRecurrenceEngine engine)
 {
     public async Task CreateWeeklyMeetingAsync()
     {
-        // RecurrenceEndTime is automatically extracted from the RRule UNTIL clause
-        var recurrence = await engine.CreateRecurrenceAsync(new RecurrenceCreate
+        // Build a recurrence pattern using Ical.Net
+        var pattern = new RecurrencePattern
         {
-            Organization = "tenant1",
-            ResourcePath = "user123/calendar",
-            Type = "meeting",
-            StartTime = new DateTime(2025, 1, 6, 14, 0, 0, DateTimeKind.Utc), // Or DateTime.Now for local time
-            Duration = TimeSpan.FromHours(1),
-            RRule = "FREQ=WEEKLY;BYDAY=MO;UNTIL=20251231T235959Z",
-            TimeZone = "America/New_York",
-            Extensions = new Dictionary<string, string>
+            Frequency = FrequencyType.Weekly,
+            Until = new CalDateTime(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Local).ToUniversalTime())
+        };
+        pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
+
+        // RecurrenceEndTime is automatically extracted from the RRule UNTIL clause
+        var recurrence = await engine.CreateRecurrenceAsync(
+            organization: "tenant1",
+            resourcePath: "user123/calendar",
+            type: "meeting",
+            startTime: DateTime.Now,
+            duration: TimeSpan.FromHours(1),
+            rrule: pattern.ToString(),
+            timeZone: "America/New_York",
+            extensions: new Dictionary<string, string>
             {
                 ["title"] = "Weekly Team Standup",
                 ["location"] = "Conference Room A"
-            }
-        });
+            });
     }
 
     public async Task GetJanuaryEntriesAsync()
@@ -97,9 +105,9 @@ public class CalendarService(IRecurrenceEngine engine)
         var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var end = new DateTime(2025, 1, 31, 23, 59, 59, DateTimeKind.Utc);
 
-        await foreach (var entry in engine.GetAsync("tenant1", "user123/calendar", start, end, null))
+        await foreach (var entry in engine.GetOccurrencesAsync("tenant1", "user123/calendar", start, end, null))
         {
-            Console.WriteLine($"{entry.Type}: {entry.StartTime} - {entry.EndTime}");
+            Console.WriteLine($"{entry.Type}: {entry.StartTime} - {entry.EndTime} ({entry.EntryType})");
         }
     }
 }
@@ -109,7 +117,7 @@ public class CalendarService(IRecurrenceEngine engine)
 
 ```csharp
 // Get only appointments and meetings
-await foreach (var entry in engine.GetAsync(
+await foreach (var entry in engine.GetOccurrencesAsync(
     "tenant1", "user123/calendar", start, end,
     types: ["appointment", "meeting"]))
 {
@@ -121,32 +129,32 @@ await foreach (var entry in engine.GetAsync(
 
 ```csharp
 // Update a standalone occurrence
-var entries = await engine.GetAsync(org, path, start, end, null).ToListAsync();
-var entry = entries.First(e => e.OccurrenceId.HasValue);
+var entries = await engine.GetOccurrencesAsync(org, path, start, end, null).ToListAsync();
+var entry = entries.First(e => e.EntryType == CalendarEntryType.Standalone);
 
 entry.StartTime = entry.StartTime.AddHours(1);
 entry.Duration = TimeSpan.FromMinutes(45);
-var updated = await engine.UpdateAsync(entry);
+var updated = await engine.UpdateOccurrenceAsync(entry);
 // EndTime is automatically recomputed
 
 // Update a virtualized occurrence (creates an override)
-var virtualizedEntry = entries.First(e => e.RecurrenceOccurrenceDetails != null);
+var virtualizedEntry = entries.First(e => e.EntryType == CalendarEntryType.Virtualized);
 virtualizedEntry.Duration = TimeSpan.FromMinutes(45);
-var overridden = await engine.UpdateAsync(virtualizedEntry);
-// Original values preserved in RecurrenceOccurrenceDetails.Original
+var overridden = await engine.UpdateOccurrenceAsync(virtualizedEntry);
+// Original values preserved in entry.Original
 ```
 
 ### Deleting Entries
 
 ```csharp
 // Delete entire recurrence series (cascade deletes exceptions/overrides)
-await engine.DeleteAsync(recurrenceEntry);
+await engine.DeleteRecurrenceAsync(org, path, recurrenceId);
 
 // Delete a virtualized occurrence (creates an exception)
-await engine.DeleteAsync(virtualizedEntry);
+await engine.DeleteOccurrenceAsync(virtualizedEntry);
 
 // Restore an overridden occurrence to original state
-if (entry.OverrideId.HasValue)
+if (entry.IsOverridden)
 {
     await engine.RestoreAsync(entry);
 }

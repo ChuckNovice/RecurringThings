@@ -9,20 +9,20 @@ using System.Collections.Generic;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The type of entry can be determined by examining which ID properties are set:
+/// The type of entry can be determined by examining the <see cref="EntryType"/> property:
 /// </para>
 /// <list type="bullet">
 /// <item>
 /// <term>Recurrence</term>
-/// <description><see cref="RecurrenceId"/> is set and <see cref="RecurrenceDetails"/> is populated</description>
+/// <description><see cref="EntryType"/> is <see cref="CalendarEntryType.Recurrence"/></description>
 /// </item>
 /// <item>
 /// <term>Standalone Occurrence</term>
-/// <description><see cref="OccurrenceId"/> is set and both detail properties are null</description>
+/// <description><see cref="EntryType"/> is <see cref="CalendarEntryType.Standalone"/></description>
 /// </item>
 /// <item>
 /// <term>Virtualized Occurrence</term>
-/// <description><see cref="RecurrenceOccurrenceDetails"/> is populated (optionally with <see cref="OverrideId"/>)</description>
+/// <description><see cref="EntryType"/> is <see cref="CalendarEntryType.Virtualized"/></description>
 /// </item>
 /// </list>
 /// <para>
@@ -47,13 +47,24 @@ public sealed class CalendarEntry
     public required string Type { get; set; }
 
     /// <summary>
-    /// Gets or sets the UTC timestamp when this entry starts.
+    /// Gets or sets the type of this calendar entry.
     /// </summary>
+    public CalendarEntryType EntryType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the local timestamp when this entry starts.
+    /// </summary>
+    /// <remarks>
+    /// The time is in the local timezone specified by <see cref="TimeZone"/>.
+    /// </remarks>
     public DateTime StartTime { get; set; }
 
     /// <summary>
-    /// Gets or sets the UTC timestamp when this entry ends.
+    /// Gets or sets the local timestamp when this entry ends.
     /// </summary>
+    /// <remarks>
+    /// The time is in the local timezone specified by <see cref="TimeZone"/>.
+    /// </remarks>
     public DateTime EndTime { get; set; }
 
     /// <summary>
@@ -72,19 +83,19 @@ public sealed class CalendarEntry
     public Dictionary<string, string>? Extensions { get; set; }
 
     /// <summary>
-    /// Gets or sets the recurrence ID if this entry represents a recurrence pattern or a virtualized occurrence.
+    /// Gets or sets the recurrence ID.
     /// </summary>
     /// <remarks>
-    /// Set when this entry is a recurrence (with <see cref="RecurrenceDetails"/> populated)
-    /// or when this is a virtualized occurrence from a recurrence.
+    /// Set when <see cref="EntryType"/> is <see cref="CalendarEntryType.Recurrence"/>
+    /// or <see cref="CalendarEntryType.Virtualized"/>.
     /// </remarks>
     public Guid? RecurrenceId { get; set; }
 
     /// <summary>
-    /// Gets or sets the standalone occurrence ID if this entry represents a standalone occurrence.
+    /// Gets or sets the standalone occurrence ID.
     /// </summary>
     /// <remarks>
-    /// Set only for standalone occurrences (not from a recurrence pattern).
+    /// Set only when <see cref="EntryType"/> is <see cref="CalendarEntryType.Standalone"/>.
     /// </remarks>
     public Guid? OccurrenceId { get; set; }
 
@@ -93,6 +104,7 @@ public sealed class CalendarEntry
     /// </summary>
     /// <remarks>
     /// Set when this is a virtualized occurrence that has an override applied.
+    /// Check <see cref="IsOverridden"/> for a convenient boolean check.
     /// </remarks>
     public Guid? OverrideId { get; set; }
 
@@ -101,25 +113,40 @@ public sealed class CalendarEntry
     /// </summary>
     /// <remarks>
     /// This property is never set in query results because excepted (deleted) occurrences
-    /// are not returned by GetAsync queries.
+    /// are not returned by queries.
     /// </remarks>
     public Guid? ExceptionId { get; set; }
 
     /// <summary>
-    /// Gets or sets the recurrence-specific details.
+    /// Gets a value indicating whether this entry has an override applied.
     /// </summary>
     /// <remarks>
-    /// Populated only when this entry represents a recurrence pattern (not a virtualized occurrence).
-    /// Mutually exclusive with <see cref="RecurrenceOccurrenceDetails"/>.
+    /// Returns <c>true</c> only for virtualized occurrences with an override applied.
+    /// When <c>true</c>, <see cref="Original"/> contains the original values before the override.
+    /// </remarks>
+    public bool IsOverridden => OverrideId.HasValue;
+
+    /// <summary>
+    /// Gets or sets the recurrence details.
+    /// </summary>
+    /// <remarks>
+    /// Populated when <see cref="EntryType"/> is <see cref="CalendarEntryType.Recurrence"/>
+    /// or <see cref="CalendarEntryType.Virtualized"/>. Contains the RRule that defines or
+    /// generated this entry.
     /// </remarks>
     public RecurrenceDetails? RecurrenceDetails { get; set; }
 
     /// <summary>
-    /// Gets or sets the virtualized occurrence details.
+    /// Gets or sets the original values before an override was applied.
     /// </summary>
     /// <remarks>
-    /// Populated when this entry represents an occurrence generated from a recurrence pattern.
-    /// Mutually exclusive with <see cref="RecurrenceDetails"/>.
+    /// <para>
+    /// Populated only when <see cref="IsOverridden"/> is <c>true</c>.
+    /// </para>
+    /// <para>
+    /// When an override is applied to a virtualized occurrence, this property contains
+    /// the original start time, duration, and extensions before modification.
+    /// </para>
     /// </remarks>
-    public RecurrenceOccurrenceDetails? RecurrenceOccurrenceDetails { get; set; }
+    public OriginalDetails? Original { get; set; }
 }

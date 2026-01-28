@@ -6,7 +6,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using FluentValidation;
 using Ical.Net;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -38,8 +37,6 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     private readonly IOccurrenceRepository _occurrenceRepository;
     private readonly IOccurrenceExceptionRepository _exceptionRepository;
     private readonly IOccurrenceOverrideRepository _overrideRepository;
-    private readonly IValidator<RecurrenceCreate> _recurrenceCreateValidator;
-    private readonly IValidator<OccurrenceCreate> _occurrenceCreateValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RecurrenceEngine"/> class.
@@ -48,34 +45,26 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     /// <param name="occurrenceRepository">The occurrence repository.</param>
     /// <param name="exceptionRepository">The exception repository.</param>
     /// <param name="overrideRepository">The override repository.</param>
-    /// <param name="recurrenceCreateValidator">The validator for recurrence create requests.</param>
-    /// <param name="occurrenceCreateValidator">The validator for occurrence create requests.</param>
     /// <exception cref="ArgumentNullException">Thrown when any dependency is null.</exception>
     public RecurrenceEngine(
         IRecurrenceRepository recurrenceRepository,
         IOccurrenceRepository occurrenceRepository,
         IOccurrenceExceptionRepository exceptionRepository,
-        IOccurrenceOverrideRepository overrideRepository,
-        IValidator<RecurrenceCreate> recurrenceCreateValidator,
-        IValidator<OccurrenceCreate> occurrenceCreateValidator)
+        IOccurrenceOverrideRepository overrideRepository)
     {
         ArgumentNullException.ThrowIfNull(recurrenceRepository);
         ArgumentNullException.ThrowIfNull(occurrenceRepository);
         ArgumentNullException.ThrowIfNull(exceptionRepository);
         ArgumentNullException.ThrowIfNull(overrideRepository);
-        ArgumentNullException.ThrowIfNull(recurrenceCreateValidator);
-        ArgumentNullException.ThrowIfNull(occurrenceCreateValidator);
 
         _recurrenceRepository = recurrenceRepository;
         _occurrenceRepository = occurrenceRepository;
         _exceptionRepository = exceptionRepository;
         _overrideRepository = overrideRepository;
-        _recurrenceCreateValidator = recurrenceCreateValidator;
-        _occurrenceCreateValidator = occurrenceCreateValidator;
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<CalendarEntry> GetAsync(
+    public async IAsyncEnumerable<CalendarEntry> GetOccurrencesAsync(
         string organization,
         string resourcePath,
         DateTime start,
@@ -223,33 +212,39 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
 
     /// <inheritdoc/>
     public async Task<Recurrence> CreateRecurrenceAsync(
-        RecurrenceCreate request,
+        string organization,
+        string resourcePath,
+        string type,
+        DateTime startTime,
+        TimeSpan duration,
+        string rrule,
+        string timeZone,
+        Dictionary<string, string>? extensions = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        // Validate the request
-        var validationResult = await _recurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
-        validationResult.ThrowIfInvalid();
+        // Validate parameters
+        Validator.ValidateRecurrenceCreate(organization, resourcePath, type, startTime, duration, rrule, timeZone, extensions);
 
         // Convert input time to UTC if it's local
-        var startTimeUtc = ConvertToUtc(request.StartTime, request.TimeZone);
+        var startTimeUtc = ConvertToUtc(startTime, timeZone);
 
         // Extract RecurrenceEndTime from RRule UNTIL clause
-        var recurrenceEndTimeUtc = ExtractUntilFromRRule(request.RRule);
+        var recurrenceEndTimeUtc = ExtractUntilFromRRule(rrule);
 
         // Create the recurrence entity
         var recurrence = new Recurrence
         {
             Id = Guid.NewGuid(),
-            Organization = request.Organization,
-            ResourcePath = request.ResourcePath,
-            Type = request.Type,
+            Organization = organization,
+            ResourcePath = resourcePath,
+            Type = type,
             StartTime = startTimeUtc,
-            Duration = request.Duration,
+            Duration = duration,
             RecurrenceEndTime = recurrenceEndTimeUtc,
-            RRule = request.RRule,
-            TimeZone = request.TimeZone,
-            Extensions = request.Extensions
+            RRule = rrule,
+            TimeZone = timeZone,
+            Extensions = extensions
         };
 
         // Persist via repository
@@ -261,30 +256,35 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
 
     /// <inheritdoc/>
     public async Task<Domain.Occurrence> CreateOccurrenceAsync(
-        OccurrenceCreate request,
+        string organization,
+        string resourcePath,
+        string type,
+        DateTime startTime,
+        TimeSpan duration,
+        string timeZone,
+        Dictionary<string, string>? extensions = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
-        // Validate the request
-        var validationResult = await _occurrenceCreateValidator.ValidateAsync(request, cancellationToken).ConfigureAwait(false);
-        validationResult.ThrowIfInvalid();
+        // Validate parameters
+        Validator.ValidateOccurrenceCreate(organization, resourcePath, type, startTime, duration, timeZone, extensions);
 
         // Convert input time to UTC if it's local
-        var startTimeUtc = ConvertToUtc(request.StartTime, request.TimeZone);
+        var startTimeUtc = ConvertToUtc(startTime, timeZone);
 
         // Create the occurrence entity
         var occurrence = new Domain.Occurrence
         {
             Id = Guid.NewGuid(),
-            Organization = request.Organization,
-            ResourcePath = request.ResourcePath,
-            Type = request.Type,
-            TimeZone = request.TimeZone,
-            Extensions = request.Extensions
+            Organization = organization,
+            ResourcePath = resourcePath,
+            Type = type,
+            TimeZone = timeZone,
+            Extensions = extensions
         };
 
         // Initialize with StartTime and Duration (auto-computes EndTime)
-        occurrence.Initialize(startTimeUtc, request.Duration);
+        occurrence.Initialize(startTimeUtc, duration);
 
         // Persist via repository
         return await _occurrenceRepository.CreateAsync(
@@ -392,15 +392,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             TimeZone = recurrence.TimeZone,
             Extensions = recurrence.Extensions,
             RecurrenceId = recurrence.Id,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrence.Id,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = occurrenceTimeUtc,
-                    Duration = recurrence.Duration,
-                    Extensions = recurrence.Extensions
-                }
+                StartTime = occurrenceTimeUtc,
+                Duration = recurrence.Duration,
+                Extensions = recurrence.Extensions
             }
         };
     }
@@ -425,15 +423,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             Extensions = @override.Extensions,
             RecurrenceId = recurrence.Id,
             OverrideId = @override.Id,
-            RecurrenceOccurrenceDetails = new RecurrenceOccurrenceDetails
+            EntryType = CalendarEntryType.Virtualized,
+            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            Original = new OriginalDetails
             {
-                RecurrenceId = recurrence.Id,
-                Original = new OccurrenceOriginal
-                {
-                    StartTime = @override.OriginalTimeUtc,
-                    Duration = @override.OriginalDuration,
-                    Extensions = @override.OriginalExtensions
-                }
+                StartTime = @override.OriginalTimeUtc,
+                Duration = @override.OriginalDuration,
+                Extensions = @override.OriginalExtensions
             }
         };
     }
@@ -456,7 +452,34 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             Duration = occurrence.Duration,
             TimeZone = occurrence.TimeZone,
             Extensions = occurrence.Extensions,
-            OccurrenceId = occurrence.Id
+            OccurrenceId = occurrence.Id,
+            EntryType = CalendarEntryType.Standalone,
+            Original = null
+        };
+    }
+
+    /// <summary>
+    /// Creates a CalendarEntry for a recurrence pattern.
+    /// </summary>
+    private static CalendarEntry CreateRecurrenceEntry(Recurrence recurrence)
+    {
+        var startTimeLocal = ConvertToLocal(recurrence.StartTime, recurrence.TimeZone);
+        var endTimeLocal = ConvertToLocal(recurrence.StartTime + recurrence.Duration, recurrence.TimeZone);
+
+        return new CalendarEntry
+        {
+            Organization = recurrence.Organization,
+            ResourcePath = recurrence.ResourcePath,
+            Type = recurrence.Type,
+            StartTime = startTimeLocal,
+            EndTime = endTimeLocal,
+            Duration = recurrence.Duration,
+            TimeZone = recurrence.TimeZone,
+            Extensions = recurrence.Extensions,
+            RecurrenceId = recurrence.Id,
+            EntryType = CalendarEntryType.Recurrence,
+            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            Original = null
         };
     }
 
@@ -477,12 +500,19 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     }
 
     /// <inheritdoc/>
-    public async Task<CalendarEntry> UpdateAsync(
+    public async Task<CalendarEntry> UpdateOccurrenceAsync(
         CalendarEntry entry,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entry);
+
+        // Block recurrence updates
+        if (entry.EntryType == CalendarEntryType.Recurrence)
+        {
+            throw new InvalidOperationException(
+                "Cannot update a recurrence pattern. Delete and recreate the recurrence instead.");
+        }
 
         // Determine entry type and delegate to appropriate handler
         if (entry.OccurrenceId.HasValue)
@@ -491,7 +521,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             return await UpdateStandaloneOccurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
         }
 
-        if (entry.RecurrenceOccurrenceDetails is not null)
+        if (entry.EntryType == CalendarEntryType.Virtualized)
         {
             // Virtualized occurrence (from recurrence)
             if (entry.OverrideId.HasValue)
@@ -504,106 +534,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             return await CreateOverrideForVirtualizedOccurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
         }
 
-        if (entry.RecurrenceId.HasValue)
-        {
-            // Recurrence pattern
-            return await UpdateRecurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
-        }
-
         throw new InvalidOperationException(
-            "Cannot determine entry type. Entry must have RecurrenceId, OccurrenceId, or RecurrenceOccurrenceDetails set.");
-    }
-
-    /// <summary>
-    /// Updates a recurrence pattern. Only Duration and Extensions are mutable.
-    /// </summary>
-    private async Task<CalendarEntry> UpdateRecurrenceAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext,
-        CancellationToken cancellationToken)
-    {
-        var recurrence = await _recurrenceRepository.GetByIdAsync(
-            entry.RecurrenceId!.Value,
-            entry.Organization,
-            entry.ResourcePath,
-            transactionContext,
-            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
-                $"Recurrence with ID '{entry.RecurrenceId}' not found.");
-
-        // Validate immutable fields
-        ValidateImmutableFields(entry, recurrence);
-
-        // Apply mutable changes
-        recurrence.Duration = entry.Duration;
-        recurrence.Extensions = entry.Extensions;
-
-        var updated = await _recurrenceRepository.UpdateAsync(
-            recurrence,
-            transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        return new CalendarEntry
-        {
-            Organization = updated.Organization,
-            ResourcePath = updated.ResourcePath,
-            Type = updated.Type,
-            StartTime = updated.StartTime,
-            EndTime = updated.StartTime + updated.Duration,
-            Duration = updated.Duration,
-            TimeZone = updated.TimeZone,
-            Extensions = updated.Extensions,
-            RecurrenceId = updated.Id,
-            RecurrenceDetails = new RecurrenceDetails
-            {
-                RRule = updated.RRule
-            }
-        };
-    }
-
-    /// <summary>
-    /// Validates that immutable fields on a recurrence have not been changed.
-    /// </summary>
-    private static void ValidateImmutableFields(CalendarEntry entry, Recurrence existing)
-    {
-        if (entry.Organization != existing.Organization)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify Organization. This field is immutable after creation.");
-        }
-
-        if (entry.ResourcePath != existing.ResourcePath)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify ResourcePath. This field is immutable after creation.");
-        }
-
-        if (entry.Type != existing.Type)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify Type. This field is immutable after creation.");
-        }
-
-        if (entry.TimeZone != existing.TimeZone)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify TimeZone. This field is immutable after creation.");
-        }
-
-        if (entry.StartTime != existing.StartTime)
-        {
-            throw new InvalidOperationException(
-                "Cannot modify StartTime on a recurrence. This field is immutable after creation.");
-        }
-
-        // Only validate RRule if RecurrenceDetails is provided
-        if (entry.RecurrenceDetails is not null)
-        {
-            if (entry.RecurrenceDetails.RRule != existing.RRule)
-            {
-                throw new InvalidOperationException(
-                    "Cannot modify RRule. This field is immutable after creation.");
-            }
-        }
+            "Cannot determine entry type. Entry must have OccurrenceId set (standalone) or EntryType set to Virtualized.");
     }
 
     /// <summary>
@@ -676,7 +608,8 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
-        var recurrenceId = entry.RecurrenceOccurrenceDetails!.RecurrenceId;
+        var recurrenceId = entry.RecurrenceId
+            ?? throw new InvalidOperationException("Cannot create override: RecurrenceId is missing.");
 
         var recurrence = await _recurrenceRepository.GetByIdAsync(
             recurrenceId,
@@ -689,11 +622,11 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         // Validate immutable fields against the parent recurrence
         ValidateImmutableVirtualizedFields(entry, recurrence);
 
-        // Get the original time from RecurrenceOccurrenceDetails.Original
+        // Get the original time from Original.StartTime
         // This is populated by CreateVirtualizedEntry when the entry is first queried
-        var originalTime = entry.RecurrenceOccurrenceDetails.Original?.StartTime
+        var originalTime = entry.Original?.StartTime
             ?? throw new InvalidOperationException(
-                "Cannot create override: Original start time is missing from RecurrenceOccurrenceDetails.");
+                "Cannot create override: Original start time is missing.");
 
         // Create new override with denormalized original values
         var newOverride = new OccurrenceOverride
@@ -793,12 +726,19 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
     }
 
     /// <inheritdoc/>
-    public async Task DeleteAsync(
+    public async Task DeleteOccurrenceAsync(
         CalendarEntry entry,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entry);
+
+        // Block recurrence deletion - use DeleteRecurrenceAsync instead
+        if (entry.EntryType == CalendarEntryType.Recurrence)
+        {
+            throw new InvalidOperationException(
+                "Cannot delete a recurrence pattern using DeleteOccurrenceAsync. Use DeleteRecurrenceAsync instead.");
+        }
 
         // Determine entry type and delegate to appropriate handler
         if (entry.OccurrenceId.HasValue)
@@ -808,7 +748,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             return;
         }
 
-        if (entry.RecurrenceOccurrenceDetails is not null)
+        if (entry.EntryType == CalendarEntryType.Virtualized)
         {
             // Virtualized occurrence (from recurrence)
             if (entry.OverrideId.HasValue)
@@ -825,30 +765,46 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             return;
         }
 
-        if (entry.RecurrenceId.HasValue)
-        {
-            // Recurrence pattern - cascade delete
-            await DeleteRecurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         throw new InvalidOperationException(
-            "Cannot determine entry type. Entry must have RecurrenceId, OccurrenceId, or RecurrenceOccurrenceDetails set.");
+            "Cannot determine entry type. Entry must have OccurrenceId set (standalone) or EntryType set to Virtualized.");
     }
 
-    /// <summary>
-    /// Deletes a recurrence pattern with cascade delete behavior.
-    /// </summary>
-    private async Task DeleteRecurrenceAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext,
-        CancellationToken cancellationToken)
+    /// <inheritdoc/>
+    public async Task DeleteRecurrenceAsync(
+        string organization,
+        string resourcePath,
+        Guid recurrenceId,
+        ITransactionContext? transactionContext = null,
+        CancellationToken cancellationToken = default)
     {
-        // Repository handles cascade delete (PostgreSQL via ON DELETE CASCADE, MongoDB via explicit transaction)
+        // Verify recurrence exists and belongs to organization/resourcePath
+        var recurrence = await _recurrenceRepository.GetByIdAsync(
+            recurrenceId,
+            organization,
+            resourcePath,
+            transactionContext,
+            cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException(
+                $"Recurrence with ID '{recurrenceId}' not found.");
+
+        // Delete cascade: exceptions, overrides, then recurrence
+        await _exceptionRepository.DeleteByRecurrenceIdAsync(
+            recurrenceId,
+            organization,
+            resourcePath,
+            transactionContext,
+            cancellationToken).ConfigureAwait(false);
+
+        await _overrideRepository.DeleteByRecurrenceIdAsync(
+            recurrenceId,
+            organization,
+            resourcePath,
+            transactionContext,
+            cancellationToken).ConfigureAwait(false);
+
         await _recurrenceRepository.DeleteAsync(
-            entry.RecurrenceId!.Value,
-            entry.Organization,
-            entry.ResourcePath,
+            recurrenceId,
+            organization,
+            resourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
     }
@@ -877,17 +833,20 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
-        // Get the original time from RecurrenceOccurrenceDetails.Original
-        var originalTime = entry.RecurrenceOccurrenceDetails!.Original?.StartTime
+        // Get the original time from Original.StartTime
+        var originalTime = entry.Original?.StartTime
             ?? throw new InvalidOperationException(
-                "Cannot create exception: Original start time is missing from RecurrenceOccurrenceDetails.");
+                "Cannot create exception: Original start time is missing.");
+
+        var recurrenceId = entry.RecurrenceId
+            ?? throw new InvalidOperationException("Cannot create exception: RecurrenceId is missing.");
 
         var exception = new OccurrenceException
         {
             Id = Guid.NewGuid(),
             Organization = entry.Organization,
             ResourcePath = entry.ResourcePath,
-            RecurrenceId = entry.RecurrenceOccurrenceDetails.RecurrenceId,
+            RecurrenceId = recurrenceId,
             OriginalTimeUtc = originalTime
         };
 
@@ -905,10 +864,13 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         ITransactionContext? transactionContext,
         CancellationToken cancellationToken)
     {
-        // Get the original time from RecurrenceOccurrenceDetails.Original
-        var originalTime = entry.RecurrenceOccurrenceDetails!.Original?.StartTime
+        // Get the original time from Original.StartTime
+        var originalTime = entry.Original?.StartTime
             ?? throw new InvalidOperationException(
-                "Cannot create exception: Original start time is missing from RecurrenceOccurrenceDetails.");
+                "Cannot create exception: Original start time is missing.");
+
+        var recurrenceId = entry.RecurrenceId
+            ?? throw new InvalidOperationException("Cannot create exception: RecurrenceId is missing.");
 
         // Delete the override
         await _overrideRepository.DeleteAsync(
@@ -924,7 +886,7 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
             Id = Guid.NewGuid(),
             Organization = entry.Organization,
             ResourcePath = entry.ResourcePath,
-            RecurrenceId = entry.RecurrenceOccurrenceDetails.RecurrenceId,
+            RecurrenceId = recurrenceId,
             OriginalTimeUtc = originalTime
         };
 
@@ -943,38 +905,80 @@ public sealed class RecurrenceEngine : IRecurrenceEngine
         ArgumentNullException.ThrowIfNull(entry);
 
         // Validate entry type - RestoreAsync is only valid for overridden virtualized occurrences
-        if (entry.OccurrenceId.HasValue)
+        if (entry.EntryType == CalendarEntryType.Standalone || entry.OccurrenceId.HasValue)
         {
             throw new InvalidOperationException(
                 "Cannot restore a standalone occurrence. RestoreAsync is only valid for overridden virtualized occurrences.");
         }
 
-        if (entry.RecurrenceId.HasValue && entry.RecurrenceOccurrenceDetails is null)
+        if (entry.EntryType == CalendarEntryType.Recurrence)
         {
             throw new InvalidOperationException(
                 "Cannot restore a recurrence pattern. RestoreAsync is only valid for overridden virtualized occurrences.");
         }
 
-        if (entry.RecurrenceOccurrenceDetails is null)
+        if (entry.EntryType != CalendarEntryType.Virtualized)
         {
             throw new InvalidOperationException(
-                "Cannot determine entry type. Entry must have RecurrenceOccurrenceDetails set for RestoreAsync.");
+                "Cannot determine entry type. Entry must have EntryType set to Virtualized for RestoreAsync.");
         }
 
-        if (!entry.OverrideId.HasValue)
+        if (!entry.IsOverridden)
         {
             throw new InvalidOperationException(
                 "Cannot restore a virtualized occurrence without an override. " +
-                "RestoreAsync is only valid for occurrences that have been modified (OverrideId must be set).");
+                "RestoreAsync is only valid for occurrences that have been modified (IsOverridden must be true).");
         }
 
         // Delete the override to restore the occurrence to its original virtualized state
         await _overrideRepository.DeleteAsync(
-            entry.OverrideId.Value,
+            entry.OverrideId!.Value,
             entry.Organization,
             entry.ResourcePath,
             transactionContext,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<CalendarEntry> GetRecurrencesAsync(
+        string organization,
+        string resourcePath,
+        DateTime start,
+        DateTime end,
+        string[]? types,
+        ITransactionContext? transactionContext = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Validate that start and end have a specified Kind (UTC or Local, not Unspecified)
+        if (start.Kind == DateTimeKind.Unspecified)
+        {
+            throw new ArgumentException(
+                "start must have a specified Kind (Utc or Local). DateTimeKind.Unspecified is not allowed.",
+                nameof(start));
+        }
+
+        if (end.Kind == DateTimeKind.Unspecified)
+        {
+            throw new ArgumentException(
+                "end must have a specified Kind (Utc or Local). DateTimeKind.Unspecified is not allowed.",
+                nameof(end));
+        }
+
+        // Convert to UTC if needed (using system timezone for Local times)
+        var startUtc = start.Kind == DateTimeKind.Utc ? start : start.ToUniversalTime();
+        var endUtc = end.Kind == DateTimeKind.Utc ? end : end.ToUniversalTime();
+
+        // Validate types filter
+        Validator.ValidateTypesFilter(types);
+
+        // Get recurrences from repository
+        var recurrences = _recurrenceRepository.GetInRangeAsync(
+            organization, resourcePath, startUtc, endUtc, types, transactionContext, cancellationToken);
+
+        await foreach (var recurrence in recurrences.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            yield return CreateRecurrenceEntry(recurrence);
+        }
     }
 
     /// <summary>
