@@ -2,6 +2,7 @@ namespace RecurringThings.PostgreSQL.Data.Entities;
 
 using System;
 using RecurringThings.Domain;
+using RecurringThings.Options;
 
 /// <summary>
 /// Maps between domain entities and EF Core entities.
@@ -28,7 +29,8 @@ internal static class EntityMapper
             RecurrenceEndTime = recurrence.RecurrenceEndTime,
             RRule = recurrence.RRule,
             TimeZone = recurrence.TimeZone,
-            Extensions = recurrence.Extensions
+            Extensions = recurrence.Extensions,
+            MonthDayBehavior = SerializeMonthDayBehavior(recurrence.MonthDayBehavior)
         };
     }
 
@@ -52,7 +54,8 @@ internal static class EntityMapper
             RecurrenceEndTime = DateTime.SpecifyKind(entity.RecurrenceEndTime, DateTimeKind.Utc),
             RRule = entity.RRule,
             TimeZone = entity.TimeZone,
-            Extensions = entity.Extensions
+            Extensions = entity.Extensions,
+            MonthDayBehavior = ParseMonthDayBehavior(entity.MonthDayBehavior)
         };
     }
 
@@ -196,5 +199,35 @@ internal static class EntityMapper
             entity.Duration);
 
         return @override;
+    }
+
+    /// <summary>
+    /// Parses a string value to <see cref="MonthDayOutOfBoundsStrategy"/>.
+    /// </summary>
+    /// <param name="value">The string value ("skip" or "clamp").</param>
+    /// <returns>The parsed strategy, or null if the value is null or empty.</returns>
+    private static MonthDayOutOfBoundsStrategy? ParseMonthDayBehavior(string? value)
+    {
+        return value switch
+        {
+            "skip" => MonthDayOutOfBoundsStrategy.Skip,
+            "clamp" => MonthDayOutOfBoundsStrategy.Clamp,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Serializes a <see cref="MonthDayOutOfBoundsStrategy"/> to a string value.
+    /// </summary>
+    /// <param name="strategy">The strategy to serialize.</param>
+    /// <returns>The string value ("skip" or "clamp"), or null if the strategy is null.</returns>
+    private static string? SerializeMonthDayBehavior(MonthDayOutOfBoundsStrategy? strategy)
+    {
+        return strategy switch
+        {
+            MonthDayOutOfBoundsStrategy.Skip => "skip",
+            MonthDayOutOfBoundsStrategy.Clamp => "clamp",
+            _ => null
+        };
     }
 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using global::MongoDB.Bson;
 using global::MongoDB.Bson.Serialization.Attributes;
 using RecurringThings.Domain;
+using RecurringThings.Options;
 
 /// <summary>
 /// MongoDB document model for storing recurrences, occurrences, exceptions, and overrides in a single collection.
@@ -124,6 +125,22 @@ public sealed class RecurringThingDocument
     public string? RRule { get; set; }
 
     /// <summary>
+    /// Gets or sets the strategy for out-of-bounds monthly days.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Present only on recurrences with monthly patterns that have out-of-bounds days.
+    /// </para>
+    /// <para>
+    /// Values: "skip" or "clamp". Null when not applicable (non-monthly patterns,
+    /// monthly patterns with day &lt;= 28, or patterns where no months are affected).
+    /// </para>
+    /// </remarks>
+    [BsonElement("monthDayBehavior")]
+    [BsonIgnoreIfNull]
+    public string? MonthDayBehavior { get; set; }
+
+    /// <summary>
     /// Gets or sets the parent recurrence identifier.
     /// </summary>
     /// <remarks>
@@ -232,7 +249,8 @@ internal static class DocumentMapper
             RecurrenceEndTime = document.RecurrenceEndTime!.Value,
             RRule = document.RRule!,
             TimeZone = document.TimeZone!,
-            Extensions = document.Extensions
+            Extensions = document.Extensions,
+            MonthDayBehavior = ParseMonthDayBehavior(document.MonthDayBehavior)
         };
     }
 
@@ -352,7 +370,8 @@ internal static class DocumentMapper
             RecurrenceEndTime = recurrence.RecurrenceEndTime,
             RRule = recurrence.RRule,
             TimeZone = recurrence.TimeZone,
-            Extensions = recurrence.Extensions
+            Extensions = recurrence.Extensions,
+            MonthDayBehavior = SerializeMonthDayBehavior(recurrence.MonthDayBehavior)
             // EndTime is NOT set for recurrences
         };
     }
@@ -425,6 +444,36 @@ internal static class DocumentMapper
             OriginalDurationMs = (long)@override.OriginalDuration.TotalMilliseconds,
             OriginalExtensions = @override.OriginalExtensions,
             Extensions = @override.Extensions
+        };
+    }
+
+    /// <summary>
+    /// Parses a string value to <see cref="MonthDayOutOfBoundsStrategy"/>.
+    /// </summary>
+    /// <param name="value">The string value ("skip" or "clamp").</param>
+    /// <returns>The parsed strategy, or null if the value is null or empty.</returns>
+    private static MonthDayOutOfBoundsStrategy? ParseMonthDayBehavior(string? value)
+    {
+        return value switch
+        {
+            "skip" => MonthDayOutOfBoundsStrategy.Skip,
+            "clamp" => MonthDayOutOfBoundsStrategy.Clamp,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Serializes a <see cref="MonthDayOutOfBoundsStrategy"/> to a string value.
+    /// </summary>
+    /// <param name="strategy">The strategy to serialize.</param>
+    /// <returns>The string value ("skip" or "clamp"), or null if the strategy is null.</returns>
+    private static string? SerializeMonthDayBehavior(MonthDayOutOfBoundsStrategy? strategy)
+    {
+        return strategy switch
+        {
+            MonthDayOutOfBoundsStrategy.Skip => "skip",
+            MonthDayOutOfBoundsStrategy.Clamp => "clamp",
+            _ => null
         };
     }
 }

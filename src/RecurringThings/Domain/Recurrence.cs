@@ -2,6 +2,7 @@ namespace RecurringThings.Domain;
 
 using System;
 using System.Collections.Generic;
+using RecurringThings.Options;
 
 /// <summary>
 /// Represents a recurring event pattern that generates virtualized occurrences on-demand.
@@ -104,4 +105,20 @@ internal sealed class Recurrence
     /// <para>Value constraints: 0-1024 characters, non-null.</para>
     /// </remarks>
     public Dictionary<string, string>? Extensions { get; set; }
+
+    /// <summary>
+    /// Gets the strategy for handling out-of-bounds days in monthly recurrences.
+    /// </summary>
+    /// <remarks>
+    /// <para>This property is immutable after creation.</para>
+    /// <para>
+    /// Only set when the RRule has FREQ=MONTHLY with BYMONTHDAY values that don't exist
+    /// in all months within the recurrence range (e.g., 31 doesn't exist in April).
+    /// </para>
+    /// <para>
+    /// Null for non-monthly patterns, monthly patterns with day &lt;= 28, or when no months
+    /// in the range are affected.
+    /// </para>
+    /// </remarks>
+    public MonthDayOutOfBoundsStrategy? MonthDayBehavior { get; init; }
 }

@@ -83,6 +83,22 @@ internal sealed class RecurrenceEntity
     public Dictionary<string, string>? Extensions { get; set; }
 
     /// <summary>
+    /// Gets or sets the strategy for out-of-bounds monthly days.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Null when not applicable (non-monthly patterns, monthly patterns with day &lt;= 28,
+    /// or patterns where no months are affected).
+    /// </para>
+    /// <para>
+    /// Values: "skip" or "clamp".
+    /// </para>
+    /// </remarks>
+    [MaxLength(10)]
+    [Column("month_day_behavior")]
+    public string? MonthDayBehavior { get; set; }
+
+    /// <summary>
     /// Gets or sets the navigation property for exceptions.
     /// </summary>
     public ICollection<OccurrenceExceptionEntity> Exceptions { get; set; } = [];

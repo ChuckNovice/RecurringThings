@@ -2,10 +2,13 @@ namespace RecurringThings.Validation;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Ical.Net.DataTypes;
 using NodaTime;
 using RecurringThings.Domain;
+using RecurringThings.Exceptions;
+using RecurringThings.Options;
 
 /// <summary>
 /// Provides validation logic for RecurringThings entities and request models.
@@ -312,4 +315,124 @@ public static partial class Validator
 
     [GeneratedRegex(@"(?:^|;)UNTIL\s*=\s*(?<until>[^;]+)", RegexOptions.IgnoreCase)]
     private static partial Regex UntilRegex();
+
+    /// <summary>
+    /// Validates monthly recurrence day bounds and returns affected months if any.
+    /// </summary>
+    /// <param name="pattern">The parsed recurrence pattern.</param>
+    /// <param name="startTime">The recurrence start time.</param>
+    /// <returns>List of affected month numbers (1-12), or empty if no issues.</returns>
+    /// <remarks>
+    /// <para>
+    /// Returns an empty list when:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>Pattern is not MONTHLY frequency</item>
+    /// <item>All BYMONTHDAY values are &lt;= 28 (safe for all months)</item>
+    /// <item>No months in the recurrence range are affected</item>
+    /// </list>
+    /// </remarks>
+    internal static IReadOnlyList<int> GetAffectedMonthsForMonthlyPattern(
+        RecurrencePattern pattern,
+        DateTime startTime)
+    {
+        // Only validate for MONTHLY frequency
+        if (pattern.Frequency != Ical.Net.FrequencyType.Monthly)
+        {
+            return [];
+        }
+
+        // Get BYMONTHDAY values (if empty, defaults to start day)
+        var byMonthDays = pattern.ByMonthDay.Count > 0
+            ? pattern.ByMonthDay.ToList()
+            : [startTime.Day];
+
+        // If all days are <= 28, no month will have issues
+        if (byMonthDays.All(d => d <= 28))
+        {
+            return [];
+        }
+
+        // Get the recurrence end date from UNTIL (IDateTime -> DateTime)
+        var until = pattern.Until;
+        if (until is null)
+        {
+            return [];
+        }
+
+        var untilDate = until.Value;
+
+        // Find affected months in the range
+        var affectedMonths = new HashSet<int>();
+        var current = new DateTime(startTime.Year, startTime.Month, 1);
+
+        while (current <= untilDate)
+        {
+            var daysInMonth = DateTime.DaysInMonth(current.Year, current.Month);
+
+            foreach (var day in byMonthDays)
+            {
+                if (day > daysInMonth)
+                {
+                    affectedMonths.Add(current.Month);
+                }
+            }
+
+            current = current.AddMonths(1);
+        }
+
+        return affectedMonths.Order().ToList();
+    }
+
+    /// <summary>
+    /// Validates monthly day bounds and throws or returns the effective strategy.
+    /// </summary>
+    /// <param name="pattern">The parsed recurrence pattern.</param>
+    /// <param name="startTime">The recurrence start time.</param>
+    /// <param name="options">The creation options (optional).</param>
+    /// <returns>The strategy to use, or null if no out-of-bounds handling needed.</returns>
+    /// <exception cref="MonthDayOutOfBoundsException">
+    /// Thrown when strategy is <see cref="MonthDayOutOfBoundsStrategy.Throw"/> and affected months exist.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// Returns null when:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>Pattern is not MONTHLY (daily, weekly, yearly patterns don't need this)</item>
+    /// <item>All BYMONTHDAY values are &lt;= 28 (safe for all months)</item>
+    /// <item>No affected months exist in the recurrence range</item>
+    /// </list>
+    /// <para>
+    /// This ensures we only store the strategy when it's actually needed,
+    /// avoiding garbage data on non-monthly recurrences.
+    /// </para>
+    /// </remarks>
+    internal static MonthDayOutOfBoundsStrategy? ValidateMonthlyDayBounds(
+        RecurrencePattern pattern,
+        DateTime startTime,
+        CreateRecurrenceOptions? options)
+    {
+        var affectedMonths = GetAffectedMonthsForMonthlyPattern(pattern, startTime);
+
+        // Return null for non-monthly patterns or when no months are affected
+        // This ensures we don't store unnecessary data
+        if (affectedMonths.Count == 0)
+        {
+            return null;
+        }
+
+        var strategy = options?.OutOfBoundsMonthBehavior ?? MonthDayOutOfBoundsStrategy.Throw;
+
+        if (strategy == MonthDayOutOfBoundsStrategy.Throw)
+        {
+            var byMonthDays = pattern.ByMonthDay.Count > 0
+                ? pattern.ByMonthDay.ToList()
+                : [startTime.Day];
+
+            throw new MonthDayOutOfBoundsException(byMonthDays.Max(), affectedMonths);
+        }
+
+        return strategy;
+    }
 }

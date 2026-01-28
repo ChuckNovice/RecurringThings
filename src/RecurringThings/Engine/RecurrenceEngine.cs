@@ -6,12 +6,12 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Ical.Net;
-using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
 using NodaTime;
 using RecurringThings.Domain;
+using RecurringThings.Engine.Virtualization;
 using RecurringThings.Models;
+using RecurringThings.Options;
 using RecurringThings.Repository;
 using RecurringThings.Validation;
 using Transactional.Abstractions;
@@ -220,6 +220,7 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
         string rrule,
         string timeZone,
         Dictionary<string, string>? extensions = null,
+        CreateRecurrenceOptions? options = null,
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
@@ -229,8 +230,16 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
         // Convert input time to UTC if it's local
         var startTimeUtc = ConvertToUtc(startTime, timeZone);
 
+        // Parse RRule ONCE and reuse
+        var pattern = new RecurrencePattern(rrule);
+
         // Extract RecurrenceEndTime from RRule UNTIL clause
-        var recurrenceEndTimeUtc = ExtractUntilFromRRule(rrule);
+        var recurrenceEndTimeUtc = pattern.Until is not null
+            ? DateTime.SpecifyKind(pattern.Until.Value, DateTimeKind.Utc)
+            : throw new ArgumentException("RRule must contain UNTIL clause.", nameof(rrule));
+
+        // Validate monthly day bounds - returns strategy or null, throws if Throw strategy
+        var monthDayBehavior = Validator.ValidateMonthlyDayBounds(pattern, startTimeUtc, options);
 
         // Create the recurrence entity
         var recurrence = new Recurrence
@@ -244,7 +253,8 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             RecurrenceEndTime = recurrenceEndTimeUtc,
             RRule = rrule,
             TimeZone = timeZone,
-            Extensions = extensions
+            Extensions = extensions,
+            MonthDayBehavior = monthDayBehavior
         };
 
         // Persist via repository
@@ -302,80 +312,25 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
     /// <summary>
     /// Generates virtualized occurrence times from a recurrence pattern.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method delegates to the appropriate occurrence generator based on the
+    /// recurrence's <see cref="Recurrence.MonthDayBehavior"/> setting:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><see cref="MonthDayOutOfBoundsStrategy.Clamp"/> uses <see cref="ClampedMonthlyOccurrenceGenerator"/></item>
+    /// <item>All other cases (null, Skip) use <see cref="IcalNetOccurrenceGenerator"/></item>
+    /// </list>
+    /// </remarks>
     private static IEnumerable<DateTime> GenerateOccurrences(Recurrence recurrence, DateTime startUtc, DateTime endUtc)
     {
-        // Get the IANA timezone
-        var timeZone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(recurrence.TimeZone);
-        if (timeZone is null)
-        {
-            yield break;
-        }
+        // Parse RRule ONCE and reuse
+        var pattern = new RecurrencePattern(recurrence.RRule);
 
-        // Convert query range to local time
-        var startInstant = Instant.FromDateTimeUtc(DateTime.SpecifyKind(startUtc, DateTimeKind.Utc));
-        var endInstant = Instant.FromDateTimeUtc(DateTime.SpecifyKind(endUtc, DateTimeKind.Utc));
+        // Get the appropriate generator based on MonthDayBehavior
+        var generator = OccurrenceGeneratorFactory.GetGenerator(recurrence);
 
-        var startLocal = startInstant.InZone(timeZone).LocalDateTime;
-        var endLocal = endInstant.InZone(timeZone).LocalDateTime;
-
-        // Convert recurrence start time to local
-        var recurrenceStartInstant = Instant.FromDateTimeUtc(DateTime.SpecifyKind(recurrence.StartTime, DateTimeKind.Utc));
-        var recurrenceStartLocal = recurrenceStartInstant.InZone(timeZone).LocalDateTime;
-
-        // Create a calendar event with the RRule
-        var calendar = new Calendar();
-        var calendarEvent = new CalendarEvent
-        {
-            DtStart = new CalDateTime(
-                recurrenceStartLocal.Year,
-                recurrenceStartLocal.Month,
-                recurrenceStartLocal.Day,
-                recurrenceStartLocal.Hour,
-                recurrenceStartLocal.Minute,
-                recurrenceStartLocal.Second,
-                recurrence.TimeZone)
-        };
-
-        // Parse and add the RRule
-        var rrule = new RecurrencePattern(recurrence.RRule);
-        calendarEvent.RecurrenceRules.Add(rrule);
-
-        calendar.Events.Add(calendarEvent);
-
-        // Get occurrences in the local time range
-        // In Ical.Net 5.x, use GetOccurrences(start) and filter with TakeWhileBefore(end)
-        var searchStart = new CalDateTime(startLocal.Year, startLocal.Month, startLocal.Day, 0, 0, 0, recurrence.TimeZone);
-        var searchEnd = new CalDateTime(endLocal.Year, endLocal.Month, endLocal.Day, 23, 59, 59, recurrence.TimeZone);
-
-        var icalOccurrences = calendarEvent.GetOccurrences(searchStart).TakeWhileBefore(searchEnd);
-
-        foreach (var icalOccurrence in icalOccurrences)
-        {
-            var occurrenceDateTime = icalOccurrence.Period.StartTime;
-
-            // Convert back to UTC using NodaTime for correct DST handling
-            var localDateTime = new LocalDateTime(
-                occurrenceDateTime.Year,
-                occurrenceDateTime.Month,
-                occurrenceDateTime.Day,
-                occurrenceDateTime.Hour,
-                occurrenceDateTime.Minute,
-                occurrenceDateTime.Second);
-
-            // Handle ambiguous times during DST fall-back
-            var zonedDateTime = localDateTime.InZoneLeniently(timeZone);
-            var utcDateTime = zonedDateTime.ToDateTimeUtc();
-
-            // Filter to exact query range
-            if (utcDateTime >= startUtc && utcDateTime <= endUtc)
-            {
-                // Also check against RecurrenceEndTime
-                if (utcDateTime <= recurrence.RecurrenceEndTime)
-                {
-                    yield return utcDateTime;
-                }
-            }
-        }
+        return generator.GenerateOccurrences(recurrence, pattern, startUtc, endUtc);
     }
 
     /// <summary>
@@ -399,7 +354,11 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             Extensions = recurrence.Extensions,
             RecurrenceId = recurrence.Id,
             EntryType = CalendarEntryType.Virtualized,
-            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            RecurrenceDetails = new RecurrenceDetails
+            {
+                RRule = recurrence.RRule,
+                MonthDayBehavior = recurrence.MonthDayBehavior
+            },
             Original = new OriginalDetails
             {
                 StartTime = occurrenceTimeUtc,
@@ -430,7 +389,11 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             RecurrenceId = recurrence.Id,
             OverrideId = @override.Id,
             EntryType = CalendarEntryType.Virtualized,
-            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            RecurrenceDetails = new RecurrenceDetails
+            {
+                RRule = recurrence.RRule,
+                MonthDayBehavior = recurrence.MonthDayBehavior
+            },
             Original = new OriginalDetails
             {
                 StartTime = @override.OriginalTimeUtc,
@@ -484,7 +447,11 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             Extensions = recurrence.Extensions,
             RecurrenceId = recurrence.Id,
             EntryType = CalendarEntryType.Recurrence,
-            RecurrenceDetails = new RecurrenceDetails { RRule = recurrence.RRule },
+            RecurrenceDetails = new RecurrenceDetails
+            {
+                RRule = recurrence.RRule,
+                MonthDayBehavior = recurrence.MonthDayBehavior
+            },
             Original = null
         };
     }
@@ -984,25 +951,6 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
         {
             yield return CreateRecurrenceEntry(recurrence);
         }
-    }
-
-    /// <summary>
-    /// Extracts the UNTIL value from an RRule string and returns it as a UTC DateTime.
-    /// </summary>
-    /// <param name="rrule">The RRule string containing an UNTIL clause.</param>
-    /// <returns>The UNTIL value as a UTC DateTime.</returns>
-    /// <exception cref="ArgumentException">Thrown when the RRule does not contain a valid UNTIL clause.</exception>
-    private static DateTime ExtractUntilFromRRule(string rrule)
-    {
-        var pattern = new RecurrencePattern(rrule);
-
-        if (pattern.Until is null)
-        {
-            throw new ArgumentException("RRule must contain UNTIL clause.", nameof(rrule));
-        }
-
-        // Ical.Net parses UNTIL as UTC when the Z suffix is present
-        return DateTime.SpecifyKind(pattern.Until.Value, DateTimeKind.Utc);
     }
 
     /// <summary>
