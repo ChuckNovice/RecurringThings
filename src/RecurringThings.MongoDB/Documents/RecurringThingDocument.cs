@@ -37,19 +37,16 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Valid values: "recurrence", "occurrence", "exception", "override"
     /// </remarks>
-    [BsonElement("documentType")]
     public required string DocumentType { get; set; }
 
     /// <summary>
     /// Gets or sets the tenant identifier for multi-tenant isolation.
     /// </summary>
-    [BsonElement("organization")]
     public required string Organization { get; set; }
 
     /// <summary>
     /// Gets or sets the hierarchical resource scope.
     /// </summary>
-    [BsonElement("resourcePath")]
     public required string ResourcePath { get; set; }
 
     /// <summary>
@@ -58,7 +55,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences and occurrences. Null for exceptions and overrides.
     /// </remarks>
-    [BsonElement("type")]
     [BsonIgnoreIfNull]
     public string? Type { get; set; }
 
@@ -68,7 +64,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences, occurrences, and overrides. Null for exceptions.
     /// </remarks>
-    [BsonElement("startTime")]
     [BsonIgnoreIfNull]
     public DateTime? StartTime { get; set; }
 
@@ -79,7 +74,6 @@ public sealed class RecurringThingDocument
     /// Present on occurrences and overrides. Null for recurrences and exceptions.
     /// Computed as StartTime + Duration.
     /// </remarks>
-    [BsonElement("endTime")]
     [BsonIgnoreIfNull]
     public DateTime? EndTime { get; set; }
 
@@ -90,7 +84,6 @@ public sealed class RecurringThingDocument
     /// Stored as milliseconds for efficient MongoDB operations.
     /// Present on recurrences, occurrences, and overrides. Null for exceptions.
     /// </remarks>
-    [BsonElement("durationMs")]
     [BsonIgnoreIfNull]
     public long? DurationMs { get; set; }
 
@@ -100,7 +93,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences and occurrences. Null for exceptions and overrides.
     /// </remarks>
-    [BsonElement("timeZone")]
     [BsonIgnoreIfNull]
     public string? TimeZone { get; set; }
 
@@ -110,7 +102,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present only on recurrences.
     /// </remarks>
-    [BsonElement("recurrenceEndTime")]
     [BsonIgnoreIfNull]
     public DateTime? RecurrenceEndTime { get; set; }
 
@@ -120,7 +111,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present only on recurrences.
     /// </remarks>
-    [BsonElement("rrule")]
     [BsonIgnoreIfNull]
     public string? RRule { get; set; }
 
@@ -136,7 +126,6 @@ public sealed class RecurringThingDocument
     /// monthly patterns with day &lt;= 28, or patterns where no months are affected).
     /// </para>
     /// </remarks>
-    [BsonElement("monthDayBehavior")]
     [BsonIgnoreIfNull]
     public string? MonthDayBehavior { get; set; }
 
@@ -146,7 +135,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on exceptions and overrides.
     /// </remarks>
-    [BsonElement("recurrenceId")]
     [BsonRepresentation(BsonType.String)]
     [BsonIgnoreIfNull]
     public Guid? RecurrenceId { get; set; }
@@ -157,7 +145,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on exceptions and overrides.
     /// </remarks>
-    [BsonElement("originalTimeUtc")]
     [BsonIgnoreIfNull]
     public DateTime? OriginalTimeUtc { get; set; }
 
@@ -168,7 +155,6 @@ public sealed class RecurringThingDocument
     /// Denormalized from the parent recurrence at creation time.
     /// Present only on overrides.
     /// </remarks>
-    [BsonElement("originalDurationMs")]
     [BsonIgnoreIfNull]
     public long? OriginalDurationMs { get; set; }
 
@@ -179,14 +165,12 @@ public sealed class RecurringThingDocument
     /// Denormalized from the parent recurrence at creation time.
     /// Present only on overrides.
     /// </remarks>
-    [BsonElement("originalExtensions")]
     [BsonIgnoreIfNull]
     public Dictionary<string, string>? OriginalExtensions { get; set; }
 
     /// <summary>
     /// Gets or sets the user-defined key-value metadata.
     /// </summary>
-    [BsonElement("extensions")]
     [BsonIgnoreIfNull]
     public Dictionary<string, string>? Extensions { get; set; }
 }

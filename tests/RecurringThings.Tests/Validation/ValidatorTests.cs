@@ -1,7 +1,6 @@
 namespace RecurringThings.Tests.Validation;
 
 using System;
-using FluentAssertions;
 using RecurringThings.Domain;
 using RecurringThings.Validation;
 using Xunit;
@@ -20,9 +19,8 @@ public class ValidatorTests
     [Fact]
     public void ValidateTypesFilter_WhenNull_ShouldNotThrow()
     {
-        // Act & Assert
-        var action = () => Validator.ValidateTypesFilter(null);
-        action.Should().NotThrow();
+        // Act & Assert - no exception means success
+        Validator.ValidateTypesFilter(null);
     }
 
     [Fact]
@@ -31,9 +29,8 @@ public class ValidatorTests
         // Arrange
         var types = new[] { "appointment", "meeting" };
 
-        // Act & Assert
-        var action = () => Validator.ValidateTypesFilter(types);
-        action.Should().NotThrow();
+        // Act & Assert - no exception means success
+        Validator.ValidateTypesFilter(types);
     }
 
     [Fact]
@@ -43,9 +40,9 @@ public class ValidatorTests
         var types = Array.Empty<string>();
 
         // Act & Assert
-        var action = () => Validator.ValidateTypesFilter(types);
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*cannot be an empty array*Use null to include all types*");
+        var ex = Assert.Throws<ArgumentException>(() => Validator.ValidateTypesFilter(types));
+        Assert.Contains("cannot be an empty array", ex.Message);
+        Assert.Contains("Use null to include all types", ex.Message);
     }
 
     #endregion
@@ -69,9 +66,8 @@ public class ValidatorTests
             TimeZone = "UTC"
         };
 
-        // Act & Assert
-        var action = () => Validator.ValidateTenantScope(recurrence, "org1", "path1");
-        action.Should().NotThrow();
+        // Act & Assert - no exception means success
+        Validator.ValidateTenantScope(recurrence, "org1", "path1");
     }
 
     [Fact]
@@ -92,9 +88,10 @@ public class ValidatorTests
         };
 
         // Act & Assert
-        var action = () => Validator.ValidateTenantScope(recurrence, "org2", "path1");
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Organization mismatch*must match parent recurrence*");
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            Validator.ValidateTenantScope(recurrence, "org2", "path1"));
+        Assert.Contains("Organization mismatch", ex.Message);
+        Assert.Contains("must match parent recurrence", ex.Message);
     }
 
     [Fact]
@@ -115,17 +112,18 @@ public class ValidatorTests
         };
 
         // Act & Assert
-        var action = () => Validator.ValidateTenantScope(recurrence, "org1", "path2");
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ResourcePath mismatch*must match parent recurrence*");
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            Validator.ValidateTenantScope(recurrence, "org1", "path2"));
+        Assert.Contains("ResourcePath mismatch", ex.Message);
+        Assert.Contains("must match parent recurrence", ex.Message);
     }
 
     [Fact]
     public void ValidateTenantScope_WhenParentRecurrenceNull_ShouldThrowArgumentNullException()
     {
         // Act & Assert
-        var action = () => Validator.ValidateTenantScope(null!, "org", "path");
-        action.Should().Throw<ArgumentNullException>();
+        Assert.Throws<ArgumentNullException>(() =>
+            Validator.ValidateTenantScope(null!, "org", "path"));
     }
 
     #endregion

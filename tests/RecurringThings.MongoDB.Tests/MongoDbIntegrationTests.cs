@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using FluentAssertions;
 using global::MongoDB.Driver;
 using RecurringThings.Domain;
 using RecurringThings.MongoDB.Documents;
@@ -86,13 +85,13 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(recurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Id.Should().Be(recurrence.Id);
-        result.Organization.Should().Be(TestOrganization);
-        result.ResourcePath.Should().Be(TestResourcePath);
-        result.Type.Should().Be(TestType);
-        result.Duration.Should().Be(recurrence.Duration);
-        result.Extensions.Should().BeEquivalentTo(recurrence.Extensions);
+        Assert.NotNull(result);
+        Assert.Equal(recurrence.Id, result!.Id);
+        Assert.Equal(TestOrganization, result.Organization);
+        Assert.Equal(TestResourcePath, result.ResourcePath);
+        Assert.Equal(TestType, result.Type);
+        Assert.Equal(recurrence.Duration, result.Duration);
+        Assert.Equivalent(recurrence.Extensions, result.Extensions);
     }
 
     [SkippableFact]
@@ -113,9 +112,9 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(recurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Duration.Should().Be(TimeSpan.FromHours(2));
-        result.Extensions.Should().ContainKey("updated");
+        Assert.NotNull(result);
+        Assert.Equal(TimeSpan.FromHours(2), result!.Duration);
+        Assert.True(result.Extensions?.ContainsKey("updated") == true);
     }
 
     [SkippableFact]
@@ -133,7 +132,7 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(recurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().BeNull();
+        Assert.Null(result);
     }
 
     [SkippableFact]
@@ -154,8 +153,8 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             TestOrganization, TestResourcePath, queryStart, queryEnd, null).ToListAsync();
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].Id.Should().Be(recurrence.Id);
+        Assert.Single(results);
+        Assert.Equal(recurrence.Id, results[0].Id);
     }
 
     [SkippableFact]
@@ -177,7 +176,7 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             TestOrganization, TestResourcePath, queryStart, queryEnd, null).ToListAsync();
 
         // Assert
-        results.Should().BeEmpty();
+        Assert.Empty(results);
     }
 
     [SkippableFact]
@@ -216,8 +215,8 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             TestOrganization, TestResourcePath, queryStart, queryEnd, [TestType]).ToListAsync();
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].Type.Should().Be(TestType);
+        Assert.Single(results);
+        Assert.Equal(TestType, results[0].Type);
     }
 
     #endregion
@@ -238,11 +237,11 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(occurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Id.Should().Be(occurrence.Id);
-        result.StartTime.Should().Be(occurrence.StartTime);
-        result.EndTime.Should().Be(occurrence.EndTime);
-        result.Duration.Should().Be(occurrence.Duration);
+        Assert.NotNull(result);
+        Assert.Equal(occurrence.Id, result!.Id);
+        Assert.Equal(occurrence.StartTime, result.StartTime);
+        Assert.Equal(occurrence.EndTime, result.EndTime);
+        Assert.Equal(occurrence.Duration, result.Duration);
     }
 
     [SkippableFact]
@@ -265,9 +264,9 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(occurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Duration.Should().Be(TimeSpan.FromMinutes(45));
-        result.Extensions.Should().ContainKey("updated");
+        Assert.NotNull(result);
+        Assert.Equal(TimeSpan.FromMinutes(45), result!.Duration);
+        Assert.True(result.Extensions?.ContainsKey("updated") == true);
     }
 
     #endregion
@@ -294,9 +293,9 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             exception.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.RecurrenceId.Should().Be(recurrence.Id);
-        result.OriginalTimeUtc.Should().Be(exception.OriginalTimeUtc);
+        Assert.NotNull(result);
+        Assert.Equal(recurrence.Id, result!.RecurrenceId);
+        Assert.Equal(exception.OriginalTimeUtc, result.OriginalTimeUtc);
     }
 
     [SkippableFact]
@@ -319,8 +318,8 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             TestOrganization, TestResourcePath, [recurrence.Id]).ToListAsync();
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].RecurrenceId.Should().Be(recurrence.Id);
+        Assert.Single(results);
+        Assert.Equal(recurrence.Id, results[0].RecurrenceId);
     }
 
     #endregion
@@ -346,11 +345,11 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await overrideRepo.GetByIdAsync(@override.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.RecurrenceId.Should().Be(recurrence.Id);
-        result.OriginalTimeUtc.Should().Be(@override.OriginalTimeUtc);
-        result.StartTime.Should().Be(@override.StartTime);
-        result.OriginalDuration.Should().Be(@override.OriginalDuration);
+        Assert.NotNull(result);
+        Assert.Equal(recurrence.Id, result!.RecurrenceId);
+        Assert.Equal(@override.OriginalTimeUtc, result.OriginalTimeUtc);
+        Assert.Equal(@override.StartTime, result.StartTime);
+        Assert.Equal(@override.OriginalDuration, result.OriginalDuration);
     }
 
     [SkippableFact]
@@ -376,8 +375,8 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             TestOrganization, TestResourcePath, [recurrence.Id], queryStart, queryEnd).ToListAsync();
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].RecurrenceId.Should().Be(recurrence.Id);
+        Assert.Single(results);
+        Assert.Equal(recurrence.Id, results[0].RecurrenceId);
     }
 
     #endregion
@@ -409,15 +408,15 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         // Assert - All related documents should be deleted
         var recurrenceResult = await recurrenceRepo.GetByIdAsync(
             recurrence.Id, TestOrganization, TestResourcePath);
-        recurrenceResult.Should().BeNull();
+        Assert.Null(recurrenceResult);
 
         var exceptionResult = await exceptionRepo.GetByIdAsync(
             exception.Id, TestOrganization, TestResourcePath);
-        exceptionResult.Should().BeNull();
+        Assert.Null(exceptionResult);
 
         var overrideResult = await overrideRepo.GetByIdAsync(
             @override.Id, TestOrganization, TestResourcePath);
-        overrideResult.Should().BeNull();
+        Assert.Null(overrideResult);
     }
 
     #endregion
@@ -437,13 +436,13 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var indexList = await indexes.ToListAsync();
 
         // Assert - should have at least 5 indexes (_id + 4 custom)
-        indexList.Should().HaveCountGreaterThanOrEqualTo(5);
+        Assert.True(indexList.Count >= 5);
 
         var indexNames = indexList.Select(i => i["name"].AsString).ToList();
-        indexNames.Should().Contain("idx_recurring_query");
-        indexNames.Should().Contain("idx_original_time");
-        indexNames.Should().Contain("idx_override_time_range");
-        indexNames.Should().Contain("idx_cascade_delete");
+        Assert.Contains("idx_recurring_query", indexNames);
+        Assert.Contains("idx_original_time", indexNames);
+        Assert.Contains("idx_override_time_range", indexNames);
+        Assert.Contains("idx_cascade_delete", indexNames);
     }
 
     #endregion
@@ -470,12 +469,12 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(recurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Extensions.Should().NotBeNull();
-        result.Extensions.Should().HaveCount(3);
-        result.Extensions!["title"].Should().Be("Test Meeting");
-        result.Extensions["location"].Should().Be("Conference Room A");
-        result.Extensions["unicode"].Should().Be("Hello \u4e16\u754c");
+        Assert.NotNull(result);
+        Assert.NotNull(result!.Extensions);
+        Assert.Equal(3, result.Extensions!.Count);
+        Assert.Equal("Test Meeting", result.Extensions["title"]);
+        Assert.Equal("Conference Room A", result.Extensions["location"]);
+        Assert.Equal("Hello \u4e16\u754c", result.Extensions["unicode"]);
     }
 
     #endregion
@@ -497,8 +496,8 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var result = await repo.GetByIdAsync(recurrence.Id, TestOrganization, TestResourcePath);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.Duration.Should().Be(TimeSpan.FromHours(2) + TimeSpan.FromMinutes(30) + TimeSpan.FromSeconds(15));
+        Assert.NotNull(result);
+        Assert.Equal(TimeSpan.FromHours(2) + TimeSpan.FromMinutes(30) + TimeSpan.FromSeconds(15), result!.Duration);
     }
 
     #endregion

@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Validation.Validators;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using FluentValidation.TestHelper;
 using RecurringThings.Domain;
 using RecurringThings.Validation.Validators;
@@ -143,7 +142,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Organization);
-        result.Errors.Should().Contain(e => e.PropertyName == "Organization" && e.ErrorMessage.Contains("must not exceed 100 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Organization" && e.ErrorMessage.Contains("must not exceed 100 characters"));
     }
 
     #endregion
@@ -214,7 +213,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.ResourcePath);
-        result.Errors.Should().Contain(e => e.PropertyName == "ResourcePath" && e.ErrorMessage.Contains("must not exceed 100 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "ResourcePath" && e.ErrorMessage.Contains("must not exceed 100 characters"));
     }
 
     #endregion
@@ -241,7 +240,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.OriginalTimeUtc);
-        result.Errors.Should().Contain(e => e.PropertyName == "OriginalTimeUtc" && e.ErrorMessage.Contains("must be in UTC"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "OriginalTimeUtc" && e.ErrorMessage.Contains("must be in UTC"));
     }
 
     [Fact]
@@ -281,7 +280,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.StartTime);
-        result.Errors.Should().Contain(e => e.PropertyName == "StartTime" && e.ErrorMessage.Contains("must be in UTC"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "StartTime" && e.ErrorMessage.Contains("must be in UTC"));
     }
 
     [Fact]
@@ -321,7 +320,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Duration);
-        result.Errors.Should().Contain(e => e.PropertyName == "Duration" && e.ErrorMessage.Contains("must be positive"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Duration" && e.ErrorMessage.Contains("must be positive"));
     }
 
     [Fact]
@@ -344,7 +343,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Duration);
-        result.Errors.Should().Contain(e => e.PropertyName == "Duration" && e.ErrorMessage.Contains("must be positive"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Duration" && e.ErrorMessage.Contains("must be positive"));
     }
 
     [Fact]
@@ -411,7 +410,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Extensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must be at least 1 character"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must be at least 1 character"));
     }
 
     [Fact]
@@ -438,7 +437,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Extensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must not exceed 100 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must not exceed 100 characters"));
     }
 
     [Fact]
@@ -465,7 +464,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Extensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must not exceed 1024 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Extensions" && e.ErrorMessage.Contains("must not exceed 1024 characters"));
     }
 
     #endregion
@@ -519,7 +518,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.OriginalExtensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must be at least 1 character"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must be at least 1 character"));
     }
 
     [Fact]
@@ -546,7 +545,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.OriginalExtensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must not exceed 100 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must not exceed 100 characters"));
     }
 
     [Fact]
@@ -573,7 +572,7 @@ public class OccurrenceOverrideValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.OriginalExtensions);
-        result.Errors.Should().Contain(e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must not exceed 1024 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "OriginalExtensions" && e.ErrorMessage.Contains("must not exceed 1024 characters"));
     }
 
     #endregion

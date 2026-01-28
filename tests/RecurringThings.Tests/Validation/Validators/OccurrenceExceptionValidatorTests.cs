@@ -2,7 +2,6 @@ namespace RecurringThings.Tests.Validation.Validators;
 
 using System;
 using System.Collections.Generic;
-using FluentAssertions;
 using FluentValidation.TestHelper;
 using RecurringThings.Domain;
 using RecurringThings.Validation.Validators;
@@ -75,7 +74,7 @@ public class OccurrenceExceptionValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Organization);
-        result.Errors.Should().Contain(e => e.PropertyName == "Organization" && e.ErrorMessage.Contains("must not exceed 100 characters"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "Organization" && e.ErrorMessage.Contains("must not exceed 100 characters"));
     }
 
     [Fact]
@@ -96,7 +95,7 @@ public class OccurrenceExceptionValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.OriginalTimeUtc);
-        result.Errors.Should().Contain(e => e.PropertyName == "OriginalTimeUtc" && e.ErrorMessage.Contains("must be in UTC"));
+        Assert.Contains(result.Errors, e => e.PropertyName == "OriginalTimeUtc" && e.ErrorMessage.Contains("must be in UTC"));
     }
 
     [Fact]

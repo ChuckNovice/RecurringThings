@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using FluentAssertions;
 using Moq;
 using RecurringThings.Domain;
 using RecurringThings.Engine;
@@ -49,53 +48,49 @@ public class RecurrenceEngineTests
     [Fact]
     public void Constructor_WithNullRecurrenceRepository_ThrowsArgumentNullException()
     {
-        var act = () => new RecurrenceEngine(
+        var ex = Assert.Throws<ArgumentNullException>(() => new RecurrenceEngine(
             null!,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object));
 
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("recurrenceRepository");
+        Assert.Equal("recurrenceRepository", ex.ParamName);
     }
 
     [Fact]
     public void Constructor_WithNullOccurrenceRepository_ThrowsArgumentNullException()
     {
-        var act = () => new RecurrenceEngine(
+        var ex = Assert.Throws<ArgumentNullException>(() => new RecurrenceEngine(
             _recurrenceRepo.Object,
             null!,
             _exceptionRepo.Object,
-            _overrideRepo.Object);
+            _overrideRepo.Object));
 
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("occurrenceRepository");
+        Assert.Equal("occurrenceRepository", ex.ParamName);
     }
 
     [Fact]
     public void Constructor_WithNullExceptionRepository_ThrowsArgumentNullException()
     {
-        var act = () => new RecurrenceEngine(
+        var ex = Assert.Throws<ArgumentNullException>(() => new RecurrenceEngine(
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             null!,
-            _overrideRepo.Object);
+            _overrideRepo.Object));
 
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("exceptionRepository");
+        Assert.Equal("exceptionRepository", ex.ParamName);
     }
 
     [Fact]
     public void Constructor_WithNullOverrideRepository_ThrowsArgumentNullException()
     {
-        var act = () => new RecurrenceEngine(
+        var ex = Assert.Throws<ArgumentNullException>(() => new RecurrenceEngine(
             _recurrenceRepo.Object,
             _occurrenceRepo.Object,
             _exceptionRepo.Object,
-            null!);
+            null!));
 
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("overrideRepository");
+        Assert.Equal("overrideRepository", ex.ParamName);
     }
 
     #endregion
@@ -126,15 +121,15 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(5);
-        results.Should().AllSatisfy(r =>
+        Assert.Equal(5, results.Count);
+        Assert.All(results, r =>
         {
-            r.RecurrenceId.Should().Be(recurrenceId);
-            r.Duration.Should().Be(duration);
-            r.Type.Should().Be(TestType);
-            r.TimeZone.Should().Be(TestTimeZone);
-            r.EntryType.Should().Be(CalendarEntryType.Virtualized);
-            r.Original.Should().NotBeNull();
+            Assert.Equal(recurrenceId, r.RecurrenceId);
+            Assert.Equal(duration, r.Duration);
+            Assert.Equal(TestType, r.Type);
+            Assert.Equal(TestTimeZone, r.TimeZone);
+            Assert.Equal(CalendarEntryType.Virtualized, r.EntryType);
+            Assert.NotNull(r.Original);
         });
     }
 
@@ -162,12 +157,14 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCountGreaterThan(0);
-        results.Should().AllSatisfy(r =>
+        Assert.NotEmpty(results);
+        Assert.All(results, r =>
         {
-            r.RecurrenceId.Should().Be(recurrenceId);
+            Assert.Equal(recurrenceId, r.RecurrenceId);
             var dayOfWeek = r.StartTime.DayOfWeek;
-            dayOfWeek.Should().BeOneOf(DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday);
+            Assert.True(
+                dayOfWeek == DayOfWeek.Monday || dayOfWeek == DayOfWeek.Wednesday || dayOfWeek == DayOfWeek.Friday,
+                $"Expected Monday, Wednesday, or Friday but got {dayOfWeek}");
         });
     }
 
@@ -195,8 +192,8 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(4); // Jan 15, Feb 15, Mar 15, Apr 15
-        results.Should().AllSatisfy(r => r.StartTime.Day.Should().Be(15));
+        Assert.Equal(4, results.Count); // Jan 15, Feb 15, Mar 15, Apr 15
+        Assert.All(results, r => Assert.Equal(15, r.StartTime.Day));
     }
 
     [Fact]
@@ -223,11 +220,11 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(3); // 2024, 2025, 2026
-        results.Should().AllSatisfy(r =>
+        Assert.Equal(3, results.Count); // 2024, 2025, 2026
+        Assert.All(results, r =>
         {
-            r.StartTime.Month.Should().Be(3);
-            r.StartTime.Day.Should().Be(20);
+            Assert.Equal(3, r.StartTime.Month);
+            Assert.Equal(20, r.StartTime.Day);
         });
     }
 
@@ -270,8 +267,8 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(4); // 5 days - 1 exception = 4
-        results.Should().NotContain(r => r.StartTime.Day == 3);
+        Assert.Equal(4, results.Count); // 5 days - 1 exception = 4
+        Assert.DoesNotContain(results, r => r.StartTime.Day == 3);
     }
 
     [Fact]
@@ -319,9 +316,9 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(5); // 7 - 2 = 5
-        results.Should().NotContain(r => r.StartTime.Day == 2);
-        results.Should().NotContain(r => r.StartTime.Day == 5);
+        Assert.Equal(5, results.Count); // 7 - 2 = 5
+        Assert.DoesNotContain(results, r => r.StartTime.Day == 2);
+        Assert.DoesNotContain(results, r => r.StartTime.Day == 5);
     }
 
     #endregion
@@ -369,15 +366,15 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(5);
+        Assert.Equal(5, results.Count);
 
         var overriddenEntry = results.Single(r => r.OverrideId == overrideId);
-        overriddenEntry.StartTime.Hour.Should().Be(14);
-        overriddenEntry.Duration.Should().Be(TimeSpan.FromHours(2));
-        overriddenEntry.Extensions.Should().ContainKey("modified");
-        overriddenEntry.Original.Should().NotBeNull();
-        overriddenEntry.Original!.StartTime.Should().Be(new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc));
-        overriddenEntry.Original!.Duration.Should().Be(duration);
+        Assert.Equal(14, overriddenEntry.StartTime.Hour);
+        Assert.Equal(TimeSpan.FromHours(2), overriddenEntry.Duration);
+        Assert.True(overriddenEntry.Extensions?.ContainsKey("modified") == true);
+        Assert.NotNull(overriddenEntry.Original);
+        Assert.Equal(new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc), overriddenEntry.Original!.StartTime);
+        Assert.Equal(duration, overriddenEntry.Original!.Duration);
     }
 
     [Fact]
@@ -421,8 +418,8 @@ public class RecurrenceEngineTests
 
         // Assert
         // Jan 1-5 = 5 occurrences, but Jan 3 was moved out, so 4 remain
-        results.Should().HaveCount(4);
-        results.Should().NotContain(r => r.StartTime.Day == 3);
+        Assert.Equal(4, results.Count);
+        Assert.DoesNotContain(results, r => r.StartTime.Day == 3);
     }
 
     [Fact]
@@ -466,8 +463,8 @@ public class RecurrenceEngineTests
 
         // Assert
         // Jan 1-5 = 5 regular occurrences + 1 moved-in override = 6 total
-        results.Should().HaveCount(6);
-        results.Should().Contain(r => r.OverrideId == overrideId);
+        Assert.Equal(6, results.Count);
+        Assert.Contains(results, r => r.OverrideId == overrideId);
     }
 
     #endregion
@@ -512,12 +509,12 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(4); // 3 virtualized + 1 standalone
+        Assert.Equal(4, results.Count); // 3 virtualized + 1 standalone
 
         var standaloneEntry = results.Single(r => r.OccurrenceId == occurrenceId);
-        standaloneEntry.RecurrenceId.Should().BeNull();
-        standaloneEntry.EntryType.Should().Be(CalendarEntryType.Standalone);
-        standaloneEntry.StartTime.Hour.Should().Be(15);
+        Assert.Null(standaloneEntry.RecurrenceId);
+        Assert.Equal(CalendarEntryType.Standalone, standaloneEntry.EntryType);
+        Assert.Equal(15, standaloneEntry.StartTime.Hour);
     }
 
     #endregion
@@ -555,7 +552,7 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd, types: ["appointment"]);
 
         // Assert
-        results.Should().AllSatisfy(r => r.Type.Should().Be("appointment"));
+        Assert.All(results, r => Assert.Equal("appointment", r.Type));
     }
 
     [Fact]
@@ -587,8 +584,8 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd, types: null);
 
         // Assert
-        results.Should().Contain(r => r.Type == "appointment");
-        results.Should().Contain(r => r.Type == "meeting");
+        Assert.Contains(results, r => r.Type == "appointment");
+        Assert.Contains(results, r => r.Type == "meeting");
     }
 
     [Fact]
@@ -598,11 +595,8 @@ public class RecurrenceEngineTests
         var queryStart = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var queryEnd = new DateTime(2024, 1, 5, 23, 59, 59, DateTimeKind.Utc);
 
-        // Act
-        var act = async () => await GetResultsAsync(queryStart, queryEnd, types: []);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>();
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(async () => await GetResultsAsync(queryStart, queryEnd, types: []));
     }
 
     #endregion
@@ -634,8 +628,8 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].StartTime.Should().Be(queryStart);
+        Assert.Single(results);
+        Assert.Equal(queryStart, results[0].StartTime);
     }
 
     [Fact]
@@ -662,8 +656,8 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(1);
-        results[0].StartTime.Should().Be(startTime); // Occurrence at 23:59:00 is within the query range
+        Assert.Single(results);
+        Assert.Equal(startTime, results[0].StartTime); // Occurrence at 23:59:00 is within the query range
     }
 
     [Fact]
@@ -691,7 +685,7 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(3); // Only Jan 1-3 due to RecurrenceEndTime
+        Assert.Equal(3, results.Count); // Only Jan 1-3 due to RecurrenceEndTime
     }
 
     #endregion
@@ -709,7 +703,7 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().BeEmpty();
+        Assert.Empty(results);
     }
 
     [Fact]
@@ -732,7 +726,7 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().BeEmpty();
+        Assert.Empty(results);
     }
 
     #endregion
@@ -765,28 +759,28 @@ public class RecurrenceEngineTests
         var results = await GetResultsAsync(queryStart, queryEnd);
 
         // Assert
-        results.Should().HaveCount(1);
+        Assert.Single(results);
         var entry = results[0];
 
-        entry.Organization.Should().Be(TestOrganization);
-        entry.ResourcePath.Should().Be(TestResourcePath);
-        entry.Type.Should().Be(TestType);
-        entry.StartTime.Should().Be(startTime);
-        entry.EndTime.Should().Be(startTime + duration);
-        entry.Duration.Should().Be(duration);
-        entry.TimeZone.Should().Be(TestTimeZone);
-        entry.Extensions.Should().BeEquivalentTo(extensions);
-        entry.RecurrenceId.Should().Be(recurrenceId);
-        entry.OccurrenceId.Should().BeNull();
-        entry.OverrideId.Should().BeNull();
-        entry.ExceptionId.Should().BeNull();
-        entry.EntryType.Should().Be(CalendarEntryType.Virtualized);
-        entry.RecurrenceDetails.Should().NotBeNull();
-        entry.RecurrenceDetails!.RRule.Should().NotBeNullOrEmpty();
-        entry.Original.Should().NotBeNull();
-        entry.Original!.StartTime.Should().Be(startTime);
-        entry.Original.Duration.Should().Be(duration);
-        entry.Original.Extensions.Should().BeEquivalentTo(extensions);
+        Assert.Equal(TestOrganization, entry.Organization);
+        Assert.Equal(TestResourcePath, entry.ResourcePath);
+        Assert.Equal(TestType, entry.Type);
+        Assert.Equal(startTime, entry.StartTime);
+        Assert.Equal(startTime + duration, entry.EndTime);
+        Assert.Equal(duration, entry.Duration);
+        Assert.Equal(TestTimeZone, entry.TimeZone);
+        Assert.Equivalent(extensions, entry.Extensions);
+        Assert.Equal(recurrenceId, entry.RecurrenceId);
+        Assert.Null(entry.OccurrenceId);
+        Assert.Null(entry.OverrideId);
+        Assert.Null(entry.ExceptionId);
+        Assert.Equal(CalendarEntryType.Virtualized, entry.EntryType);
+        Assert.NotNull(entry.RecurrenceDetails);
+        Assert.False(string.IsNullOrEmpty(entry.RecurrenceDetails!.RRule));
+        Assert.NotNull(entry.Original);
+        Assert.Equal(startTime, entry.Original!.StartTime);
+        Assert.Equal(duration, entry.Original.Duration);
+        Assert.Equivalent(extensions, entry.Original.Extensions);
     }
 
     #endregion
