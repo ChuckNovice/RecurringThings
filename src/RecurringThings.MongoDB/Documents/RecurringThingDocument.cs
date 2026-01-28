@@ -2,8 +2,6 @@ namespace RecurringThings.MongoDB.Documents;
 
 using System;
 using System.Collections.Generic;
-using global::MongoDB.Bson;
-using global::MongoDB.Bson.Serialization.Attributes;
 using RecurringThings.Domain;
 using RecurringThings.Options;
 
@@ -19,16 +17,18 @@ using RecurringThings.Options;
 /// - "override": A modified occurrence from a recurrence
 /// </para>
 /// <para>
-/// Fields are mapped to camelCase for MongoDB conventions.
+/// Serialization is configured via conventions (no attributes required):
+/// - The Id property is mapped as the document _id using NamedIdMemberConvention
+/// - All Guid properties are serialized as strings using GuidStringRepresentationConvention
+/// - Fields are mapped to camelCase using CamelCaseElementNameConvention
+/// - Null properties are automatically ignored using IgnoreIfNullConvention
 /// </para>
 /// </remarks>
 public sealed class RecurringThingDocument
 {
     /// <summary>
-    /// Gets or sets the unique identifier.
+    /// Gets or sets the unique identifier (maps to MongoDB _id field).
     /// </summary>
-    [BsonId]
-    [BsonRepresentation(BsonType.String)]
     public Guid Id { get; set; }
 
     /// <summary>
@@ -55,7 +55,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences and occurrences. Null for exceptions and overrides.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public string? Type { get; set; }
 
     /// <summary>
@@ -64,7 +63,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences, occurrences, and overrides. Null for exceptions.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public DateTime? StartTime { get; set; }
 
     /// <summary>
@@ -74,7 +72,6 @@ public sealed class RecurringThingDocument
     /// Present on occurrences and overrides. Null for recurrences and exceptions.
     /// Computed as StartTime + Duration.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public DateTime? EndTime { get; set; }
 
     /// <summary>
@@ -84,7 +81,6 @@ public sealed class RecurringThingDocument
     /// Stored as milliseconds for efficient MongoDB operations.
     /// Present on recurrences, occurrences, and overrides. Null for exceptions.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public long? DurationMs { get; set; }
 
     /// <summary>
@@ -93,7 +89,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on recurrences and occurrences. Null for exceptions and overrides.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public string? TimeZone { get; set; }
 
     /// <summary>
@@ -102,7 +97,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present only on recurrences.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public DateTime? RecurrenceEndTime { get; set; }
 
     /// <summary>
@@ -111,7 +105,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present only on recurrences.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public string? RRule { get; set; }
 
     /// <summary>
@@ -126,7 +119,6 @@ public sealed class RecurringThingDocument
     /// monthly patterns with day &lt;= 28, or patterns where no months are affected).
     /// </para>
     /// </remarks>
-    [BsonIgnoreIfNull]
     public string? MonthDayBehavior { get; set; }
 
     /// <summary>
@@ -135,8 +127,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on exceptions and overrides.
     /// </remarks>
-    [BsonRepresentation(BsonType.String)]
-    [BsonIgnoreIfNull]
     public Guid? RecurrenceId { get; set; }
 
     /// <summary>
@@ -145,7 +135,6 @@ public sealed class RecurringThingDocument
     /// <remarks>
     /// Present on exceptions and overrides.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public DateTime? OriginalTimeUtc { get; set; }
 
     /// <summary>
@@ -155,7 +144,6 @@ public sealed class RecurringThingDocument
     /// Denormalized from the parent recurrence at creation time.
     /// Present only on overrides.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public long? OriginalDurationMs { get; set; }
 
     /// <summary>
@@ -165,13 +153,11 @@ public sealed class RecurringThingDocument
     /// Denormalized from the parent recurrence at creation time.
     /// Present only on overrides.
     /// </remarks>
-    [BsonIgnoreIfNull]
     public Dictionary<string, string>? OriginalExtensions { get; set; }
 
     /// <summary>
     /// Gets or sets the user-defined key-value metadata.
     /// </summary>
-    [BsonIgnoreIfNull]
     public Dictionary<string, string>? Extensions { get; set; }
 }
 

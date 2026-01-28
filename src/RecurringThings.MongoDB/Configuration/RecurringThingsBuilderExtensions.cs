@@ -1,7 +1,6 @@
 namespace RecurringThings.MongoDB.Configuration;
 
 using System;
-using global::MongoDB.Bson.Serialization.Conventions;
 using global::MongoDB.Driver;
 using Microsoft.Extensions.DependencyInjection;
 using RecurringThings.Configuration;
@@ -44,12 +43,8 @@ public static class RecurringThingsBuilderExtensions
         configure(options);
         options.Validate();
 
-        // Register camelCase naming convention for RecurringThings documents
-        var conventionPack = new ConventionPack { new CamelCaseElementNameConvention() };
-        ConventionRegistry.Register(
-            "RecurringThingsCamelCase",
-            conventionPack,
-            t => t.FullName?.StartsWith("RecurringThings", StringComparison.Ordinal) == true);
+        // Ensure MongoDB conventions are registered (idempotent)
+        MongoDbInitializer.EnsureInitialized();
 
         // Mark MongoDB as configured
         builder.MongoDbConfigured = true;

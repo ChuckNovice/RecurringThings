@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using global::MongoDB.Driver;
 using RecurringThings.Domain;
+using RecurringThings.MongoDB.Configuration;
 using RecurringThings.MongoDB.Documents;
 using RecurringThings.Repository;
 using Transactional.Abstractions;
@@ -28,6 +29,7 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
     public MongoOccurrenceExceptionRepository(IMongoDatabase database, string collectionName = "recurring_things")
     {
         ArgumentNullException.ThrowIfNull(database);
+        MongoDbInitializer.EnsureInitialized();
         _collection = database.GetCollection<RecurringThingDocument>(collectionName);
     }
 
