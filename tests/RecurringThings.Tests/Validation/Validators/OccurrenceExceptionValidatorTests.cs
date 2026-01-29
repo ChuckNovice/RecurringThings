@@ -19,6 +19,7 @@ public class OccurrenceExceptionValidatorTests
         Id = Guid.NewGuid(),
         Organization = "org",
         ResourcePath = "path",
+        Type = "meeting",
         RecurrenceId = Guid.NewGuid(),
         OriginalTimeUtc = DateTime.UtcNow
     };
@@ -45,6 +46,7 @@ public class OccurrenceExceptionValidatorTests
             Id = Guid.NewGuid(),
             Organization = null!,
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -65,6 +67,7 @@ public class OccurrenceExceptionValidatorTests
             Id = Guid.NewGuid(),
             Organization = new string('a', 101),
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -86,6 +89,7 @@ public class OccurrenceExceptionValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.Now // Local time
         };
@@ -107,6 +111,7 @@ public class OccurrenceExceptionValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             Extensions = new Dictionary<string, string>

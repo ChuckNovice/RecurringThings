@@ -253,6 +253,7 @@ public class RecurrenceEngineTests
             Id = Guid.NewGuid(),
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc)
         };
@@ -293,6 +294,7 @@ public class RecurrenceEngineTests
                 Id = Guid.NewGuid(),
                 Organization = TestOrganization,
                 ResourcePath = TestResourcePath,
+                Type = TestType,
                 RecurrenceId = recurrenceId,
                 OriginalTimeUtc = new DateTime(2024, 1, 2, 9, 0, 0, DateTimeKind.Utc)
             },
@@ -301,6 +303,7 @@ public class RecurrenceEngineTests
                 Id = Guid.NewGuid(),
                 Organization = TestOrganization,
                 ResourcePath = TestResourcePath,
+                Type = TestType,
                 RecurrenceId = recurrenceId,
                 OriginalTimeUtc = new DateTime(2024, 1, 5, 9, 0, 0, DateTimeKind.Utc)
             }
@@ -347,6 +350,7 @@ public class RecurrenceEngineTests
             Id = overrideId,
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = duration,
@@ -399,6 +403,7 @@ public class RecurrenceEngineTests
             Id = overrideId,
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 1, 3, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = duration
@@ -444,6 +449,7 @@ public class RecurrenceEngineTests
             Id = overrideId,
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = duration

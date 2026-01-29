@@ -66,10 +66,10 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
         CancellationToken cancellationToken = default)
     {
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -100,10 +100,10 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
 
         var document = DocumentMapper.FromRecurrence(recurrence);
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, recurrence.Id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, recurrence.Organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, recurrence.ResourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, recurrence.Id));
 
         var session = GetSession(transactionContext);
 
@@ -133,16 +133,15 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
 
         // Delete the recurrence
         var recurrenceFilter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         // Delete related exceptions and overrides (cascade delete)
         var relatedFilter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, id),
             Builders<RecurringThingDocument>.Filter.In(d => d.DocumentType,
                 [DocumentTypes.Exception, DocumentTypes.Override]));
 
@@ -178,9 +177,9 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
             filterBuilder.Eq(d => d.Organization, organization),
             filterBuilder.Eq(d => d.ResourcePath, resourcePath),
             filterBuilder.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
-            // StartTime <= endUtc AND RecurrenceEndTime >= startUtc
+            // StartTime <= endUtc AND EndTime >= startUtc
             filterBuilder.Lte(d => d.StartTime, endUtc),
-            filterBuilder.Gte(d => d.RecurrenceEndTime, startUtc)
+            filterBuilder.Gte(d => d.EndTime, startUtc)
         };
 
         if (types is { Length: > 0 })

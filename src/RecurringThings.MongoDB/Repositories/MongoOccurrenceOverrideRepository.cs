@@ -67,10 +67,10 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         CancellationToken cancellationToken = default)
     {
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -100,9 +100,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -147,9 +146,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         var nullableIds = recurrenceIdList.Select(id => (Guid?)id).ToList();
 
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -211,9 +209,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
                 filterBuilder.Gte(d => d.EndTime, startUtc)));
 
         var filter = filterBuilder.And(
-            filterBuilder.In(d => d.RecurrenceId, nullableIds),
             filterBuilder.Eq(d => d.Organization, organization),
-            filterBuilder.Eq(d => d.ResourcePath, resourcePath),
+            filterBuilder.In(d => d.RecurrenceId, nullableIds),
             filterBuilder.Eq(d => d.DocumentType, DocumentTypes.Override),
             rangeFilter);
 
@@ -250,10 +247,10 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
 
         var document = DocumentMapper.FromOccurrenceOverride(@override);
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, @override.Organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, @override.ResourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id));
 
         var session = GetSession(transactionContext);
 
@@ -280,10 +277,10 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         CancellationToken cancellationToken = default)
     {
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -308,9 +305,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         CancellationToken cancellationToken = default)
     {
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);

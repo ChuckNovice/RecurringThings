@@ -69,8 +69,9 @@ public sealed class RecurringThingDocument
     /// Gets or sets the UTC end time.
     /// </summary>
     /// <remarks>
-    /// Present on occurrences and overrides. Null for recurrences and exceptions.
-    /// Computed as StartTime + Duration.
+    /// <para>Present on recurrences, occurrences, and overrides. Null for exceptions.</para>
+    /// <para>For recurrences: series end time (from RRule UNTIL).</para>
+    /// <para>For occurrences/overrides: computed as StartTime + Duration.</para>
     /// </remarks>
     public DateTime? EndTime { get; set; }
 
@@ -90,14 +91,6 @@ public sealed class RecurringThingDocument
     /// Present on recurrences and occurrences. Null for exceptions and overrides.
     /// </remarks>
     public string? TimeZone { get; set; }
-
-    /// <summary>
-    /// Gets or sets the UTC timestamp when the recurrence series ends.
-    /// </summary>
-    /// <remarks>
-    /// Present only on recurrences.
-    /// </remarks>
-    public DateTime? RecurrenceEndTime { get; set; }
 
     /// <summary>
     /// Gets or sets the RFC 5545 recurrence rule.
@@ -216,7 +209,7 @@ internal static class DocumentMapper
             Type = document.Type!,
             StartTime = document.StartTime!.Value,
             Duration = TimeSpan.FromMilliseconds(document.DurationMs!.Value),
-            RecurrenceEndTime = document.RecurrenceEndTime!.Value,
+            RecurrenceEndTime = document.EndTime!.Value,
             RRule = document.RRule!,
             TimeZone = document.TimeZone!,
             Extensions = document.Extensions,
@@ -278,6 +271,7 @@ internal static class DocumentMapper
             Id = document.Id,
             Organization = document.Organization,
             ResourcePath = document.ResourcePath,
+            Type = document.Type!,
             RecurrenceId = document.RecurrenceId!.Value,
             OriginalTimeUtc = document.OriginalTimeUtc!.Value,
             Extensions = document.Extensions
@@ -305,6 +299,7 @@ internal static class DocumentMapper
             Id = document.Id,
             Organization = document.Organization,
             ResourcePath = document.ResourcePath,
+            Type = document.Type!,
             RecurrenceId = document.RecurrenceId!.Value,
             OriginalTimeUtc = document.OriginalTimeUtc!.Value,
             OriginalDuration = TimeSpan.FromMilliseconds(document.OriginalDurationMs!.Value),
@@ -337,12 +332,11 @@ internal static class DocumentMapper
             Type = recurrence.Type,
             StartTime = recurrence.StartTime,
             DurationMs = (long)recurrence.Duration.TotalMilliseconds,
-            RecurrenceEndTime = recurrence.RecurrenceEndTime,
+            EndTime = recurrence.RecurrenceEndTime,
             RRule = recurrence.RRule,
             TimeZone = recurrence.TimeZone,
             Extensions = recurrence.Extensions,
             MonthDayBehavior = SerializeMonthDayBehavior(recurrence.MonthDayBehavior)
-            // EndTime is NOT set for recurrences
         };
     }
 
@@ -385,6 +379,7 @@ internal static class DocumentMapper
             DocumentType = DocumentTypes.Exception,
             Organization = exception.Organization,
             ResourcePath = exception.ResourcePath,
+            Type = exception.Type,
             RecurrenceId = exception.RecurrenceId,
             OriginalTimeUtc = exception.OriginalTimeUtc,
             Extensions = exception.Extensions
@@ -406,6 +401,7 @@ internal static class DocumentMapper
             DocumentType = DocumentTypes.Override,
             Organization = @override.Organization,
             ResourcePath = @override.ResourcePath,
+            Type = @override.Type,
             RecurrenceId = @override.RecurrenceId,
             OriginalTimeUtc = @override.OriginalTimeUtc,
             StartTime = @override.StartTime,

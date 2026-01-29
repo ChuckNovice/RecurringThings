@@ -35,6 +35,14 @@ internal sealed class OccurrenceOverrideEntity
     public string ResourcePath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the user-defined type inherited from the parent recurrence.
+    /// </summary>
+    [Required]
+    [MaxLength(100)]
+    [Column("type")]
+    public string Type { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the parent recurrence identifier.
     /// </summary>
     [Column("recurrence_id")]

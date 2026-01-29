@@ -2,7 +2,7 @@ using BenchmarkDotNet.Running;
 using RecurringThings.Benchmarks.Benchmarks;
 using RecurringThings.Benchmarks.Infrastructure;
 
-Console.WriteLine("=== RecurringThings Benchmarks ===");
+Console.WriteLine("=== RecurringThings Read Performance Benchmarks ===");
 Console.WriteLine();
 
 // Check environment variables
@@ -20,74 +20,49 @@ if (!mongoAvailable && !postgresAvailable)
     return 1;
 }
 
-// Initialize providers BEFORE benchmarks (migrations/indexes don't count in benchmark time)
-Console.WriteLine("=== Initializing Providers (migrations/indexes) ===");
-if (mongoAvailable)
-{
-    await ProviderFactory.InitializeProviderAsync(BenchmarkProvider.MongoDB);
-}
-
-if (postgresAvailable)
-{
-    await ProviderFactory.InitializeProviderAsync(BenchmarkProvider.PostgreSQL);
-}
-
+// Show benchmark configuration
+Console.WriteLine("Benchmark configuration:");
+Console.WriteLine($"  Data volumes: [{string.Join(", ", BenchmarkOptions.DataVolumes)}]");
+Console.WriteLine($"  Concurrent requests: [{string.Join(", ", BenchmarkOptions.ConcurrentRequests)}]");
+Console.WriteLine($"  Query range: {BenchmarkOptions.QueryStartUtc:yyyy-MM-dd} to {BenchmarkOptions.QueryEndUtc:yyyy-MM-dd}");
 Console.WriteLine();
 
-// Clean up any leftover data from previous runs
-Console.WriteLine("=== Cleaning up previous benchmark data ===");
-if (mongoAvailable)
+// Show database naming
+Console.WriteLine("Database naming (persistent per volume):");
+foreach (var volume in BenchmarkOptions.DataVolumes)
 {
-    Console.WriteLine("Cleaning MongoDB...");
-    var mongoEngine = ProviderFactory.CreateEngine(BenchmarkProvider.MongoDB);
-    await DataSeeder.CleanupAllAsync(mongoEngine);
+    Console.WriteLine($"  Volume {volume}: rt_bench_v{volume}");
 }
-
-if (postgresAvailable)
-{
-    Console.WriteLine("Cleaning PostgreSQL...");
-    var pgEngine = ProviderFactory.CreateEngine(BenchmarkProvider.PostgreSQL);
-    await DataSeeder.CleanupAllAsync(pgEngine);
-}
-
 Console.WriteLine();
 
 Console.WriteLine("=== Starting Benchmarks ===");
-Console.WriteLine("BenchmarkDotNet will now run. Progress will be shown for each benchmark.");
+Console.WriteLine("BenchmarkDotNet will measure response time for concurrent read queries.");
+Console.WriteLine("Data is seeded once per (provider, volume) and reused across runs.");
 Console.WriteLine();
 
-// Run benchmarks
-if (args.Length == 0)
-{
-    BenchmarkRunner.Run<QueryBenchmarks>(new BenchmarkConfig());
-    BenchmarkRunner.Run<CreateBenchmarks>(new BenchmarkConfig());
-    BenchmarkRunner.Run<UpdateBenchmarks>(new BenchmarkConfig());
-    BenchmarkRunner.Run<DeleteBenchmarks>(new BenchmarkConfig());
-}
-else
-{
-    BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, new BenchmarkConfig());
-}
+// Run the single read performance benchmark
+// Config is applied via [Config(typeof(BenchmarkConfig))] attribute on the benchmark class
+BenchmarkRunner.Run<ReadPerformanceBenchmark>();
 
-// Final cleanup
-Console.WriteLine();
-Console.WriteLine("=== Final Cleanup ===");
-if (mongoAvailable)
+// Generate charts from CSV results
+var csvPath = "./BenchmarkResults/results/RecurringThings.Benchmarks.Benchmarks.ReadPerformanceBenchmark-report.csv";
+if (File.Exists(csvPath))
 {
-    Console.WriteLine("Cleaning MongoDB...");
-    var mongoEngine = ProviderFactory.CreateEngine(BenchmarkProvider.MongoDB);
-    await DataSeeder.CleanupAllAsync(mongoEngine);
-}
-
-if (postgresAvailable)
-{
-    Console.WriteLine("Cleaning PostgreSQL...");
-    var pgEngine = ProviderFactory.CreateEngine(BenchmarkProvider.PostgreSQL);
-    await DataSeeder.CleanupAllAsync(pgEngine);
+    Console.WriteLine();
+    Console.WriteLine("=== Generating Charts ===");
+    ChartGenerator.GenerateCharts(csvPath, "./BenchmarkResults/charts");
 }
 
 Console.WriteLine();
 Console.WriteLine("=== Benchmarks Complete ===");
 Console.WriteLine("Results available in ./BenchmarkResults/");
+Console.WriteLine("Charts available in ./BenchmarkResults/charts/<theme>/");
+Console.WriteLine();
+Console.WriteLine("Note: Benchmark databases persist for reuse. To clean up manually:");
+foreach (var volume in BenchmarkOptions.DataVolumes)
+{
+    Console.WriteLine($"  - MongoDB: db.dropDatabase() on rt_bench_v{volume}");
+    Console.WriteLine($"  - PostgreSQL: DROP DATABASE rt_bench_v{volume}");
+}
 
 return 0;

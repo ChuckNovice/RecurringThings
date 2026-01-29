@@ -111,21 +111,23 @@ await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calen
 
 ## Benchmarking
 
-Run benchmarks locally against MongoDB and/or PostgreSQL:
+Run read performance benchmarks locally against MongoDB and/or PostgreSQL:
 
 ```bash
 # Set connection strings (PowerShell)
 $env:MONGODB_CONNECTION_STRING = "mongodb://localhost:27017"
 $env:POSTGRES_CONNECTION_STRING = "Host=localhost;Database=postgres;Username=postgres;Password=password"
 
-# Run all benchmarks
+# Run benchmarks
 dotnet run -c Release --project benchmarks/RecurringThings.Benchmarks
-
-# Run specific benchmark class
-dotnet run -c Release --project benchmarks/RecurringThings.Benchmarks -- --filter *QueryBenchmarks*
 ```
 
-Results are generated in `./BenchmarkResults/` including HTML reports and PNG charts.
+The benchmark measures response time for concurrent read queries across different data volumes. Configure parameters in `BenchmarkOptions.cs`:
+- **DataVolumes**: Record counts to test (default: 1K, 10K, 100K, 1M)
+- **ConcurrentRequests**: Concurrency levels (default: 1, 5, 10, 25, 50, 100, 500, 1000)
+- **QueryStartUtc/QueryEndUtc**: Date range for queries
+
+Results are generated in `./BenchmarkResults/` including HTML reports, CSV data, and line charts.
 
 ## License
 

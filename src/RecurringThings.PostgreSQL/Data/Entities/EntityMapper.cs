@@ -122,6 +122,7 @@ internal static class EntityMapper
             Id = exception.Id,
             Organization = exception.Organization,
             ResourcePath = exception.ResourcePath,
+            Type = exception.Type,
             RecurrenceId = exception.RecurrenceId,
             OriginalTimeUtc = exception.OriginalTimeUtc,
             Extensions = exception.Extensions
@@ -142,6 +143,7 @@ internal static class EntityMapper
             Id = entity.Id,
             Organization = entity.Organization,
             ResourcePath = entity.ResourcePath,
+            Type = entity.Type,
             RecurrenceId = entity.RecurrenceId,
             OriginalTimeUtc = DateTime.SpecifyKind(entity.OriginalTimeUtc, DateTimeKind.Utc),
             Extensions = entity.Extensions
@@ -162,6 +164,7 @@ internal static class EntityMapper
             Id = @override.Id,
             Organization = @override.Organization,
             ResourcePath = @override.ResourcePath,
+            Type = @override.Type,
             RecurrenceId = @override.RecurrenceId,
             OriginalTimeUtc = @override.OriginalTimeUtc,
             StartTime = @override.StartTime,
@@ -187,6 +190,7 @@ internal static class EntityMapper
             Id = entity.Id,
             Organization = entity.Organization,
             ResourcePath = entity.ResourcePath,
+            Type = entity.Type,
             RecurrenceId = entity.RecurrenceId,
             OriginalTimeUtc = DateTime.SpecifyKind(entity.OriginalTimeUtc, DateTimeKind.Utc),
             OriginalDuration = entity.OriginalDuration,
