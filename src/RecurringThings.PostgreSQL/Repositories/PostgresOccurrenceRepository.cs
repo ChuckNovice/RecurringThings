@@ -81,6 +81,26 @@ internal sealed class PostgresOccurrenceRepository : IOccurrenceRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Occurrence?> GetAsync(
+        string organization,
+        Guid id,
+        ITransactionContext? transactionContext = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(transactionContext, cancellationToken)
+            .ConfigureAwait(false);
+
+        var entity = await context.Occurrences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                o => o.Organization == organization && o.Id == id,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return entity is null ? null : EntityMapper.ToDomain(entity);
+    }
+
+    /// <inheritdoc/>
     public async Task<Occurrence> UpdateAsync(
         Occurrence occurrence,
         ITransactionContext? transactionContext = null,

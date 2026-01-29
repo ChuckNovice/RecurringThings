@@ -140,6 +140,13 @@ Overrides: `StartTime`, `Duration`, and `Extensions` are mutable (EndTime recomp
 - For MongoDB: Use conventions or class maps instead of `[BsonElement]` attributes
 - For JSON: Use `JsonSerializerOptions` with `PropertyNamingPolicy` instead of `[JsonPropertyName]` attributes
 
+### MongoDB Sharding Key
+- Organization is the sharding key for MongoDB collections
+- **ALL MongoDB queries MUST use organization as the first filter** to trigger the sharding key
+- This ensures queries are routed to the correct shard and avoids scatter-gather operations
+- Repository methods that query by ID alone are NOT allowed - always include organization
+- Every Find/FindAsync operation must have a CRITICAL comment documenting the sharding key usage
+
 ### Testing
 - Target: 90%+ coverage
 - Integration tests require `MONGODB_CONNECTION_STRING` and `POSTGRES_CONNECTION_STRING` environment variables

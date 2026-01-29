@@ -953,6 +953,40 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
         }
     }
 
+    /// <inheritdoc />
+    public async Task<CalendarEntry?> GetRecurrenceAsync(
+        string organization,
+        Guid recurrenceId,
+        CancellationToken cancellationToken = default)
+    {
+        var recurrence = await _recurrenceRepository.GetAsync(organization, recurrenceId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (recurrence is null)
+        {
+            return null;
+        }
+
+        return CreateRecurrenceEntry(recurrence);
+    }
+
+    /// <inheritdoc />
+    public async Task<CalendarEntry?> GetOccurrenceAsync(
+        string organization,
+        Guid occurrenceId,
+        CancellationToken cancellationToken = default)
+    {
+        var occurrence = await _occurrenceRepository.GetAsync(organization, occurrenceId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (occurrence is null)
+        {
+            return null;
+        }
+
+        return CreateStandaloneEntry(occurrence);
+    }
+
     /// <summary>
     /// Converts a DateTime to UTC. If already UTC, returns as-is. If Local, converts using the specified timezone.
     /// </summary>

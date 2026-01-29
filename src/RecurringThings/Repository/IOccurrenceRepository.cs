@@ -41,6 +41,24 @@ internal interface IOccurrenceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets an occurrence by organization and ID.
+    /// </summary>
+    /// <param name="organization">The organization identifier (sharding key).</param>
+    /// <param name="id">The occurrence ID.</param>
+    /// <param name="transactionContext">Optional transaction context.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The occurrence if found; otherwise, null.</returns>
+    /// <remarks>
+    /// This method queries by organization (sharding key) and ID only,
+    /// without requiring resourcePath. Use when resourcePath is unknown.
+    /// </remarks>
+    Task<Occurrence?> GetAsync(
+        string organization,
+        Guid id,
+        ITransactionContext? transactionContext = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates an existing occurrence.
     /// </summary>
     /// <param name="occurrence">The occurrence with updated values.</param>
