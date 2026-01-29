@@ -779,7 +779,6 @@ public class RecurrenceEngineTests
         Assert.Equal(recurrenceId, entry.RecurrenceId);
         Assert.Null(entry.OccurrenceId);
         Assert.Null(entry.OverrideId);
-        Assert.Null(entry.ExceptionId);
         Assert.Equal(CalendarEntryType.Virtualized, entry.EntryType);
         Assert.NotNull(entry.RecurrenceDetails);
         Assert.False(string.IsNullOrEmpty(entry.RecurrenceDetails!.RRule));

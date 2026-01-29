@@ -66,6 +66,8 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
@@ -99,6 +101,8 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
@@ -145,6 +149,8 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
         // Cast to nullable Guid for filter compatibility
         var nullableIds = recurrenceIdList.Select(id => (Guid?)id).ToList();
 
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
@@ -181,6 +187,8 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
@@ -209,6 +217,8 @@ internal sealed class MongoOccurrenceExceptionRepository : IOccurrenceExceptionR
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),

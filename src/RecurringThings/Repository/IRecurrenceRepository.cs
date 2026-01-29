@@ -41,6 +41,24 @@ internal interface IRecurrenceRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a recurrence by organization and ID.
+    /// </summary>
+    /// <param name="organization">The organization identifier (sharding key).</param>
+    /// <param name="id">The recurrence ID.</param>
+    /// <param name="transactionContext">Optional transaction context.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The recurrence if found; otherwise, null.</returns>
+    /// <remarks>
+    /// This method queries by organization (sharding key) and ID only,
+    /// without requiring resourcePath. Use when resourcePath is unknown.
+    /// </remarks>
+    Task<Recurrence?> GetAsync(
+        string organization,
+        Guid id,
+        ITransactionContext? transactionContext = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates an existing recurrence.
     /// </summary>
     /// <param name="recurrence">The recurrence with updated values.</param>

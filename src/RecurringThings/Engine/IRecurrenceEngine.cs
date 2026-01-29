@@ -107,6 +107,56 @@ public interface IRecurrenceEngine
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a specific recurrence by ID.
+    /// </summary>
+    /// <param name="organization">The organization identifier (sharding key).</param>
+    /// <param name="recurrenceId">The recurrence ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The calendar entry representing the recurrence, or null if not found.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method retrieves a single recurrence pattern by its ID without requiring a date range.
+    /// The returned <see cref="CalendarEntry"/> has <see cref="CalendarEntry.EntryType"/> set to
+    /// <see cref="CalendarEntryType.Recurrence"/>.
+    /// </para>
+    /// <para>
+    /// Unlike <see cref="GetRecurrencesAsync"/>, this method does not require resourcePath.
+    /// It queries by organization (sharding key) and ID only.
+    /// </para>
+    /// </remarks>
+    Task<CalendarEntry?> GetRecurrenceAsync(
+        string organization,
+        Guid recurrenceId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a specific standalone occurrence by ID.
+    /// </summary>
+    /// <param name="organization">The organization identifier (sharding key).</param>
+    /// <param name="occurrenceId">The occurrence ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The calendar entry representing the occurrence, or null if not found.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method retrieves a single standalone occurrence by its ID without requiring a date range.
+    /// The returned <see cref="CalendarEntry"/> has <see cref="CalendarEntry.EntryType"/> set to
+    /// <see cref="CalendarEntryType.Standalone"/>.
+    /// </para>
+    /// <para>
+    /// Unlike <see cref="GetOccurrencesAsync"/>, this method does not require resourcePath.
+    /// It queries by organization (sharding key) and ID only.
+    /// </para>
+    /// <para>
+    /// This method only retrieves standalone occurrences. To retrieve virtualized occurrences
+    /// from recurrence patterns, use <see cref="GetOccurrencesAsync"/>.
+    /// </para>
+    /// </remarks>
+    Task<CalendarEntry?> GetOccurrenceAsync(
+        string organization,
+        Guid occurrenceId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Creates a new recurrence pattern.
     /// </summary>
     /// <param name="organization">The tenant identifier for multi-tenant isolation (0-100 chars).</param>
