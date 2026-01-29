@@ -66,10 +66,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -99,10 +101,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         ITransactionContext? transactionContext = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -146,10 +150,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         // Cast to nullable Guid for filter compatibility
         var nullableIds = recurrenceIdList.Select(id => (Guid?)id).ToList();
 
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -210,10 +216,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
                 filterBuilder.Lte(d => d.StartTime, endUtc),
                 filterBuilder.Gte(d => d.EndTime, startUtc)));
 
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = filterBuilder.And(
-            filterBuilder.In(d => d.RecurrenceId, nullableIds),
             filterBuilder.Eq(d => d.Organization, organization),
             filterBuilder.Eq(d => d.ResourcePath, resourcePath),
+            filterBuilder.In(d => d.RecurrenceId, nullableIds),
             filterBuilder.Eq(d => d.DocumentType, DocumentTypes.Override),
             rangeFilter);
 
@@ -249,10 +257,13 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         ArgumentNullException.ThrowIfNull(@override);
 
         var document = DocumentMapper.FromOccurrenceOverride(@override);
+
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, @override.Organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, @override.ResourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -279,10 +290,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);
@@ -307,10 +320,12 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         ITransactionContext? transactionContext = null,
         CancellationToken cancellationToken = default)
     {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
         var session = GetSession(transactionContext);

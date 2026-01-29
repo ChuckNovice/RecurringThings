@@ -26,9 +26,6 @@ using System.Collections.Generic;
 /// </item>
 /// </list>
 /// <para>
-/// <see cref="ExceptionId"/> is never set in query results because excepted occurrences are not returned.
-/// </para>
-/// <para>
 /// <strong>Mutable properties:</strong>
 /// </para>
 /// <list type="bullet">
@@ -174,20 +171,6 @@ public sealed class CalendarEntry
     /// </para>
     /// </remarks>
     public Guid? OverrideId { get; init; }
-
-    /// <summary>
-    /// Gets the exception ID.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This property is never set in query results because excepted (deleted) occurrences
-    /// are not returned by queries.
-    /// </para>
-    /// <para>
-    /// This property is immutable after creation.
-    /// </para>
-    /// </remarks>
-    public Guid? ExceptionId { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether this entry has an override applied.
