@@ -93,6 +93,39 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Recurrence?> GetAsync(
+        string organization,
+        Guid id,
+        ITransactionContext? transactionContext = null,
+        CancellationToken cancellationToken = default)
+    {
+        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
+        // Without this, MongoDB performs scatter-gather across all shards.
+        var filter = Builders<RecurringThingDocument>.Filter.And(
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+
+        var session = GetSession(transactionContext);
+
+        RecurringThingDocument? document;
+        if (session is not null)
+        {
+            document = await _collection.Find(session, filter)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            document = await _collection.Find(filter)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return document is null ? null : DocumentMapper.ToRecurrence(document);
+    }
+
+    /// <inheritdoc/>
     public async Task<Recurrence> UpdateAsync(
         Recurrence recurrence,
         ITransactionContext? transactionContext = null,
