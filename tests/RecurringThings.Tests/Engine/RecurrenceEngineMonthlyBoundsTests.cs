@@ -593,6 +593,7 @@ public class RecurrenceEngineMonthlyBoundsTests
             Id = Guid.NewGuid(),
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 4, 30, 9, 0, 0, DateTimeKind.Utc)
         };
@@ -634,6 +635,7 @@ public class RecurrenceEngineMonthlyBoundsTests
             Id = overrideId,
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 4, 30, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = duration,

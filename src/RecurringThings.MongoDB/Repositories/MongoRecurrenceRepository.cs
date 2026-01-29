@@ -70,41 +70,8 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
-
-        var session = GetSession(transactionContext);
-
-        RecurringThingDocument? document;
-        if (session is not null)
-        {
-            document = await _collection.Find(session, filter)
-                .FirstOrDefaultAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            document = await _collection.Find(filter)
-                .FirstOrDefaultAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        return document is null ? null : DocumentMapper.ToRecurrence(document);
-    }
-
-    /// <inheritdoc/>
-    public async Task<Recurrence?> GetAsync(
-        string organization,
-        Guid id,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default)
-    {
-        // CRITICAL: Organization filter MUST be first to trigger the sharding key.
-        // Without this, MongoDB performs scatter-gather across all shards.
-        var filter = Builders<RecurringThingDocument>.Filter.And(
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -140,8 +107,8 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, recurrence.Organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, recurrence.ResourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, recurrence.Id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, recurrence.Id));
 
         var session = GetSession(transactionContext);
 
@@ -174,14 +141,13 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
         var recurrenceFilter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         // CRITICAL: Organization filter MUST be first to trigger the sharding key.
         // Without this, MongoDB performs scatter-gather across all shards.
         var relatedFilter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, id),
             Builders<RecurringThingDocument>.Filter.In(d => d.DocumentType,
                 [DocumentTypes.Exception, DocumentTypes.Override]));
@@ -220,9 +186,9 @@ internal sealed class MongoRecurrenceRepository : IRecurrenceRepository
             filterBuilder.Eq(d => d.Organization, organization),
             filterBuilder.Eq(d => d.ResourcePath, resourcePath),
             filterBuilder.Eq(d => d.DocumentType, DocumentTypes.Recurrence),
-            // StartTime <= endUtc AND RecurrenceEndTime >= startUtc
+            // StartTime <= endUtc AND EndTime >= startUtc
             filterBuilder.Lte(d => d.StartTime, endUtc),
-            filterBuilder.Gte(d => d.RecurrenceEndTime, startUtc)
+            filterBuilder.Gte(d => d.EndTime, startUtc)
         };
 
         if (types is { Length: > 0 })

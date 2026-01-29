@@ -782,6 +782,7 @@ public class RecurrenceEngineCrudTests
             Id = id,
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = TimeSpan.FromHours(1),

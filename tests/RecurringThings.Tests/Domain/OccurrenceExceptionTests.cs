@@ -21,6 +21,7 @@ public class OccurrenceExceptionTests
             Id = id,
             Organization = "org1",
             ResourcePath = "user/calendar",
+            Type = "meeting",
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = originalTime
         };
@@ -42,6 +43,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -59,6 +61,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             Extensions = new Dictionary<string, string> { ["reason"] = "Holiday" }
@@ -86,6 +89,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -103,6 +107,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -128,6 +133,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             Extensions = extensions
@@ -146,6 +152,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             Extensions = new Dictionary<string, string> { ["key"] = "value" }
@@ -170,6 +177,7 @@ public class OccurrenceExceptionTests
             Id = id,
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -190,6 +198,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = DateTime.UtcNow
         };
@@ -210,6 +219,7 @@ public class OccurrenceExceptionTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = originalTime
         };

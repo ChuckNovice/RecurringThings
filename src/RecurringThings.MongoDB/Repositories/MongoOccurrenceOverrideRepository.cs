@@ -71,8 +71,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -105,7 +105,6 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
@@ -154,7 +153,6 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
             Builders<RecurringThingDocument>.Filter.In(d => d.RecurrenceId, nullableIds),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 
@@ -220,7 +218,6 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         // Without this, MongoDB performs scatter-gather across all shards.
         var filter = filterBuilder.And(
             filterBuilder.Eq(d => d.Organization, organization),
-            filterBuilder.Eq(d => d.ResourcePath, resourcePath),
             filterBuilder.In(d => d.RecurrenceId, nullableIds),
             filterBuilder.Eq(d => d.DocumentType, DocumentTypes.Override),
             rangeFilter);
@@ -263,8 +260,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, @override.Organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, @override.ResourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, @override.Id));
 
         var session = GetSession(transactionContext);
 
@@ -295,8 +292,8 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override),
+            Builders<RecurringThingDocument>.Filter.Eq(d => d.Id, id));
 
         var session = GetSession(transactionContext);
 
@@ -324,7 +321,6 @@ internal sealed class MongoOccurrenceOverrideRepository : IOccurrenceOverrideRep
         // Without this, MongoDB performs scatter-gather across all shards.
         var filter = Builders<RecurringThingDocument>.Filter.And(
             Builders<RecurringThingDocument>.Filter.Eq(d => d.Organization, organization),
-            Builders<RecurringThingDocument>.Filter.Eq(d => d.ResourcePath, resourcePath),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.RecurrenceId, recurrenceId),
             Builders<RecurringThingDocument>.Filter.Eq(d => d.DocumentType, DocumentTypes.Override));
 

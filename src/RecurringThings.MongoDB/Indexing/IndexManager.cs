@@ -97,41 +97,32 @@ public sealed class IndexManager
     {
         var indexModels = new List<CreateIndexModel<RecurringThingDocument>>
         {
-            // Index 1: For recurrences and occurrences by organization, resourcePath, type, and time range
+            // Index 1: For recurrences, occurrences, and overrides by time range
             CreateIndexModel(
-                "idx_recurring_query",
+                "idx_time_range",
                 Builders<RecurringThingDocument>.IndexKeys
-                    .Ascending(d => d.Organization)
+                    .Hashed(d => d.Organization)
                     .Ascending(d => d.ResourcePath)
                     .Ascending(d => d.DocumentType)
-                    .Ascending(d => d.Type)
                     .Ascending(d => d.StartTime)
-                    .Ascending(d => d.EndTime)),
+                    .Ascending(d => d.EndTime)
+                    .Ascending(d => d.Type)),
 
             // Index 2: For exceptions/overrides by original time
             CreateIndexModel(
                 "idx_original_time",
                 Builders<RecurringThingDocument>.IndexKeys
-                    .Ascending(d => d.Organization)
+                    .Hashed(d => d.Organization)
                     .Ascending(d => d.ResourcePath)
                     .Ascending(d => d.DocumentType)
+                    .Ascending(d => d.Type)
                     .Ascending(d => d.OriginalTimeUtc)),
 
-            // Index 3: For overrides by new time range (moved occurrences)
-            CreateIndexModel(
-                "idx_override_time_range",
-                Builders<RecurringThingDocument>.IndexKeys
-                    .Ascending(d => d.Organization)
-                    .Ascending(d => d.ResourcePath)
-                    .Ascending(d => d.DocumentType)
-                    .Ascending(d => d.StartTime)
-                    .Ascending(d => d.EndTime)),
-
-            // Index 4: For cascade deletes by recurrence ID
+            // Index 3: For cascade deletes by recurrence ID
             CreateIndexModel(
                 "idx_cascade_delete",
                 Builders<RecurringThingDocument>.IndexKeys
-                    .Ascending(d => d.Organization)
+                    .Hashed(d => d.Organization)
                     .Ascending(d => d.RecurrenceId))
         };
 

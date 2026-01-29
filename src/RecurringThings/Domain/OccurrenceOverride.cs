@@ -47,6 +47,14 @@ internal sealed class OccurrenceOverride
     public required string ResourcePath { get; init; }
 
     /// <summary>
+    /// Gets the user-defined type inherited from the parent recurrence.
+    /// </summary>
+    /// <remarks>
+    /// Denormalized from the parent <see cref="Recurrence"/> at creation time for indexing efficiency.
+    /// </remarks>
+    public required string Type { get; init; }
+
+    /// <summary>
     /// Gets the identifier of the parent recurrence.
     /// </summary>
     public Guid RecurrenceId { get; init; }

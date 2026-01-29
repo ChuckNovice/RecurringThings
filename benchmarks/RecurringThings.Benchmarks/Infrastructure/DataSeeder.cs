@@ -1,10 +1,12 @@
 namespace RecurringThings.Benchmarks.Infrastructure;
 
+using Ical.Net;
+using Ical.Net.DataTypes;
 using RecurringThings.Engine;
-using RecurringThings.Models;
 
 /// <summary>
-/// Seeds test data for benchmarks with varied recurrence patterns.
+/// Seeds test data for benchmarks with deterministic, varied recurrence patterns.
+/// Separates data into "in-range" (within query range) and "out-of-range" (historical).
 /// </summary>
 public static class DataSeeder
 {
@@ -19,61 +21,71 @@ public static class DataSeeder
     public const string ResourcePath = "benchmark/calendar";
 
     private const string TimeZone = "America/New_York";
-
-    // Varied recurrence patterns with different computational complexities
-    private static readonly string[] RRulePatterns =
-    [
-        // Heavy: Multiple days per week (generates many occurrences)
-        "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-        "FREQ=WEEKLY;BYDAY=MO,WE,FR",
-        "FREQ=DAILY",
-        // Medium: Weekly patterns
-        "FREQ=WEEKLY;BYDAY=MO",
-        "FREQ=WEEKLY;BYDAY=TU,TH",
-        "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR",
-        // Light: Monthly and yearly patterns (fewer occurrences)
-        "FREQ=MONTHLY;BYMONTHDAY=1",
-        "FREQ=MONTHLY;BYMONTHDAY=15",
-        "FREQ=MONTHLY;BYDAY=1MO",
-        "FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=1"
-    ];
+    private const int Seed = 42;
 
     /// <summary>
-    /// Seeds recurrences with varied patterns.
+    /// Seeds deterministic test data with the specified total count.
+    /// Data composition:
+    /// - 90% recurrences (cycling through frequency types)
+    /// - 10% standalone occurrences
+    /// In-range vs out-of-range controlled by MaxRecurrencesInRange and MaxOccurrencesInRange.
     /// </summary>
-    public static async Task<List<CalendarEntry>> SeedRecurrencesAsync(
+    /// <param name="engine">The recurrence engine to seed data into.</param>
+    /// <param name="totalCount">Total number of records to seed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Seeded data information.</returns>
+    public static async Task<SeededData> SeedDeterministicAsync(
         IRecurrenceEngine engine,
-        int count,
+        int totalCount,
         CancellationToken cancellationToken = default)
     {
-        var entries = new List<CalendarEntry>(count);
-        var baseDate = DateTime.UtcNow.Date;
-        var untilDate = baseDate.AddYears(1);
+        var random = new Random(Seed);
 
-        Console.WriteLine($"  Seeding {count} recurrences with varied patterns...");
+        // Calculate counts based on composition
+        var recurrenceCount = (int)(totalCount * 0.9);
+        var occurrenceCount = totalCount - recurrenceCount;
+
+        // Calculate in-range vs out-of-range
+        var inRangeRecurrences = Math.Min(recurrenceCount, BenchmarkOptions.MaxRecurrencesInRange);
+        var outOfRangeRecurrences = recurrenceCount - inRangeRecurrences;
+        var inRangeOccurrences = Math.Min(occurrenceCount, BenchmarkOptions.MaxOccurrencesInRange);
+        var outOfRangeOccurrences = occurrenceCount - inRangeOccurrences;
+
+        Console.WriteLine($"  Seeding {totalCount} total records (seed={Seed}):");
+        Console.WriteLine($"    - {recurrenceCount} recurrences (90%):");
+        Console.WriteLine($"        {inRangeRecurrences} in-range, {outOfRangeRecurrences} out-of-range");
+        Console.WriteLine($"    - {occurrenceCount} standalone occurrences (10%):");
+        Console.WriteLine($"        {inRangeOccurrences} in-range, {outOfRangeOccurrences} out-of-range");
+
+        // Calculate query range
+        var queryStart = BenchmarkOptions.QueryStartUtc;
+        var queryEnd = BenchmarkOptions.QueryEndUtc;
+        var rangeDays = (queryEnd - queryStart).TotalDays;
+
+        // Calculate historical period for out-of-range data (1 year before query start)
+        var historicalEnd = queryStart.AddDays(-1);
+        var historicalStart = historicalEnd.AddYears(-1);
+        var historicalDays = (historicalEnd - historicalStart).TotalDays;
+
+        // Seed in-range recurrences
+        Console.WriteLine("  Seeding in-range recurrences...");
         var lastProgress = 0;
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < inRangeRecurrences; i++)
         {
-            // Report progress every 10%
-            var progress = (i + 1) * 100 / count;
-            if (progress >= lastProgress + 10)
-            {
-                Console.WriteLine($"    Progress: {progress}% ({i + 1}/{count})");
-                lastProgress = progress;
-            }
+            ReportProgress(i, inRangeRecurrences, ref lastProgress, "in-range recurrences");
 
-            var startTime = baseDate.AddDays(i % 365).AddHours(9);
+            // Distribute start times within the first third of the query range
+            var dayOffset = (i % (int)(rangeDays / 3)) + random.Next(0, 7);
+            var startTime = queryStart.AddDays(dayOffset).AddHours(9 + (i % 12));
 
-            // Select varied pattern based on index
-            var patternIndex = i % RRulePatterns.Length;
-            var baseRRule = RRulePatterns[patternIndex];
-            var rrule = $"{baseRRule};UNTIL={untilDate:yyyyMMdd}T235959Z";
+            // Build RRule with UNTIL = query end
+            var rrule = BuildRRule(i, queryEnd);
 
-            var entry = await engine.CreateRecurrenceAsync(
+            await engine.CreateRecurrenceAsync(
                 Organization,
                 ResourcePath,
-                $"meeting-type-{i % 10}",
+                $"type-{i % 10}",
                 startTime,
                 TimeSpan.FromHours(1),
                 rrule,
@@ -81,109 +93,189 @@ public static class DataSeeder
                 new Dictionary<string, string>
                 {
                     ["index"] = i.ToString(),
-                    ["pattern"] = patternIndex.ToString()
+                    ["seed"] = Seed.ToString(),
+                    ["location"] = "in-range"
                 },
                 cancellationToken: cancellationToken);
-
-            entries.Add(entry);
         }
 
-        Console.WriteLine($"  Seeding complete: {count} recurrences created");
-        return entries;
-    }
+        Console.WriteLine($"    In-range recurrences: {inRangeRecurrences} created");
 
-    /// <summary>
-    /// Seeds standalone occurrences.
-    /// </summary>
-    public static async Task<List<CalendarEntry>> SeedOccurrencesAsync(
-        IRecurrenceEngine engine,
-        int count,
-        CancellationToken cancellationToken = default)
-    {
-        var entries = new List<CalendarEntry>(count);
-        var baseDate = DateTime.UtcNow.Date;
-
-        Console.WriteLine($"  Seeding {count} standalone occurrences...");
-        var lastProgress = 0;
-
-        for (int i = 0; i < count; i++)
+        // Seed out-of-range recurrences (historical data)
+        if (outOfRangeRecurrences > 0)
         {
-            var progress = (i + 1) * 100 / count;
-            if (progress >= lastProgress + 10)
+            Console.WriteLine("  Seeding out-of-range recurrences (historical)...");
+            lastProgress = 0;
+
+            for (var i = 0; i < outOfRangeRecurrences; i++)
             {
-                Console.WriteLine($"    Progress: {progress}% ({i + 1}/{count})");
-                lastProgress = progress;
+                ReportProgress(i, outOfRangeRecurrences, ref lastProgress, "out-of-range recurrences");
+
+                // Distribute throughout the historical period
+                var dayOffset = i % (int)historicalDays;
+                var startTime = historicalStart.AddDays(dayOffset).AddHours(9 + (i % 12));
+
+                // Build RRule with UNTIL = before query start (ends within historical period)
+                var untilDate = startTime.AddMonths(1); // Recurrence runs for about a month
+                if (untilDate > historicalEnd)
+                    untilDate = historicalEnd;
+
+                var rrule = BuildRRule(i, untilDate);
+
+                await engine.CreateRecurrenceAsync(
+                    Organization,
+                    ResourcePath,
+                    $"type-{i % 10}",
+                    startTime,
+                    TimeSpan.FromHours(1),
+                    rrule,
+                    TimeZone,
+                    new Dictionary<string, string>
+                    {
+                        ["index"] = (inRangeRecurrences + i).ToString(),
+                        ["seed"] = Seed.ToString(),
+                        ["location"] = "out-of-range"
+                    },
+                    cancellationToken: cancellationToken);
             }
 
-            var startTime = baseDate.AddDays(i % 365).AddHours(10 + (i % 8));
+            Console.WriteLine($"    Out-of-range recurrences: {outOfRangeRecurrences} created");
+        }
 
-            var entry = await engine.CreateOccurrenceAsync(
+        // Seed in-range standalone occurrences
+        Console.WriteLine("  Seeding in-range standalone occurrences...");
+        lastProgress = 0;
+
+        for (var i = 0; i < inRangeOccurrences; i++)
+        {
+            ReportProgress(i, inRangeOccurrences, ref lastProgress, "in-range occurrences");
+
+            // Distribute throughout the query range
+            var dayOffset = i % (int)rangeDays;
+            var startTime = queryStart.AddDays(dayOffset).AddHours(10 + (i % 8));
+
+            await engine.CreateOccurrenceAsync(
                 Organization,
                 ResourcePath,
-                $"appointment-type-{i % 5}",
+                $"standalone-type-{i % 5}",
                 startTime,
                 TimeSpan.FromMinutes(30 + (i % 60)),
                 TimeZone,
-                new Dictionary<string, string> { ["index"] = i.ToString() },
+                new Dictionary<string, string>
+                {
+                    ["index"] = i.ToString(),
+                    ["seed"] = Seed.ToString(),
+                    ["location"] = "in-range"
+                },
                 cancellationToken: cancellationToken);
-
-            entries.Add(entry);
         }
 
-        Console.WriteLine($"  Seeding complete: {count} occurrences created");
-        return entries;
+        Console.WriteLine($"    In-range occurrences: {inRangeOccurrences} created");
+
+        // Seed out-of-range standalone occurrences (historical data)
+        if (outOfRangeOccurrences > 0)
+        {
+            Console.WriteLine("  Seeding out-of-range standalone occurrences (historical)...");
+            lastProgress = 0;
+
+            for (var i = 0; i < outOfRangeOccurrences; i++)
+            {
+                ReportProgress(i, outOfRangeOccurrences, ref lastProgress, "out-of-range occurrences");
+
+                // Distribute throughout the historical period
+                var dayOffset = i % (int)historicalDays;
+                var startTime = historicalStart.AddDays(dayOffset).AddHours(10 + (i % 8));
+
+                await engine.CreateOccurrenceAsync(
+                    Organization,
+                    ResourcePath,
+                    $"standalone-type-{i % 5}",
+                    startTime,
+                    TimeSpan.FromMinutes(30 + (i % 60)),
+                    TimeZone,
+                    new Dictionary<string, string>
+                    {
+                        ["index"] = (inRangeOccurrences + i).ToString(),
+                        ["seed"] = Seed.ToString(),
+                        ["location"] = "out-of-range"
+                    },
+                    cancellationToken: cancellationToken);
+            }
+
+            Console.WriteLine($"    Out-of-range occurrences: {outOfRangeOccurrences} created");
+        }
+
+        Console.WriteLine($"  Seeding complete: {totalCount} total records");
+        Console.WriteLine($"    In-range: {inRangeRecurrences} recurrences, {inRangeOccurrences} occurrences");
+        Console.WriteLine($"    Out-of-range: {outOfRangeRecurrences} recurrences, {outOfRangeOccurrences} occurrences");
+
+        return new SeededData(
+            totalCount,
+            recurrenceCount,
+            inRangeRecurrences,
+            0,
+            0,
+            occurrenceCount,
+            inRangeOccurrences);
     }
 
     /// <summary>
-    /// Cleans up all benchmark data from the database.
+    /// Builds an RRule string using Ical.Net RecurrencePattern.
+    /// Cycles through Daily, Weekly, Monthly frequencies based on index.
     /// </summary>
-    public static async Task CleanupAllAsync(IRecurrenceEngine engine, CancellationToken cancellationToken = default)
+    private static string BuildRRule(int index, DateTime untilUtc)
     {
-        Console.WriteLine("  Cleaning up benchmark data...");
-
-        // Query all recurrences and delete them (cascades to exceptions/overrides)
-        var start = DateTime.UtcNow.AddYears(-5);
-        var end = DateTime.UtcNow.AddYears(5);
-
-        var recurrenceIds = new List<Guid>();
-        await foreach (var entry in engine.GetRecurrencesAsync(
-            Organization, ResourcePath, start, end, cancellationToken: cancellationToken))
+        var pattern = (index % 3) switch
         {
-            if (entry.RecurrenceId.HasValue)
+            0 => new RecurrencePattern(FrequencyType.Daily) { Interval = 1 },
+            1 => new RecurrencePattern(FrequencyType.Weekly)
             {
-                recurrenceIds.Add(entry.RecurrenceId.Value);
-            }
-        }
-
-        if (recurrenceIds.Count > 0)
-        {
-            Console.WriteLine($"    Deleting {recurrenceIds.Count} recurrences...");
-            foreach (var id in recurrenceIds)
+                Interval = 1,
+                ByDay = [new WeekDay(DayOfWeek.Monday)]
+            },
+            _ => new RecurrencePattern(FrequencyType.Monthly)
             {
-                await engine.DeleteRecurrenceAsync(Organization, ResourcePath, id, cancellationToken: cancellationToken);
+                Interval = 1,
+                ByMonthDay = [1]
             }
-        }
+        };
 
-        // Query and delete standalone occurrences
-        var occurrences = new List<CalendarEntry>();
-        await foreach (var entry in engine.GetOccurrencesAsync(
-            Organization, ResourcePath, start, end, cancellationToken: cancellationToken))
-        {
-            if (entry.EntryType == CalendarEntryType.Standalone)
-            {
-                occurrences.Add(entry);
-            }
-        }
+        // Set UNTIL to the specified date - use CalDateTime for proper conversion
+        pattern.Until = new CalDateTime(untilUtc);
 
-        if (occurrences.Count > 0)
-        {
-            Console.WriteLine($"    Deleting {occurrences.Count} standalone occurrences...");
-            foreach (var entry in occurrences)
-            {
-                await engine.DeleteOccurrenceAsync(entry, cancellationToken: cancellationToken);
-            }
-        }
-
-        Console.WriteLine("  Cleanup complete");
+        // Convert to string - RecurrencePattern.ToString() gives us the RRULE
+        return pattern.ToString() ?? throw new InvalidOperationException("RecurrencePattern.ToString() returned null");
     }
+
+    private static void ReportProgress(int current, int total, ref int lastProgress, string itemType)
+    {
+        if (total == 0) return;
+
+        var progress = (current + 1) * 100 / total;
+        if (progress >= lastProgress + 20)
+        {
+            Console.WriteLine($"    {itemType}: {progress}% ({current + 1}/{total})");
+            lastProgress = progress;
+        }
+    }
+
 }
+
+/// <summary>
+/// Information about seeded data.
+/// </summary>
+/// <param name="TotalCount">Total number of records seeded.</param>
+/// <param name="RecurrenceCount">Number of recurrences seeded.</param>
+/// <param name="InRangeRecurrenceCount">Number of recurrences within query range.</param>
+/// <param name="OverrideCount">Number of overrides applied.</param>
+/// <param name="ExceptionCount">Number of exceptions applied.</param>
+/// <param name="OccurrenceCount">Number of standalone occurrences seeded.</param>
+/// <param name="InRangeOccurrenceCount">Number of occurrences within query range.</param>
+public record SeededData(
+    int TotalCount,
+    int RecurrenceCount,
+    int InRangeRecurrenceCount,
+    int OverrideCount,
+    int ExceptionCount,
+    int OccurrenceCount,
+    int InRangeOccurrenceCount);

@@ -3,14 +3,13 @@ namespace RecurringThings.Benchmarks.Infrastructure;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Exporters;
-using BenchmarkDotNet.Exporters.Csv;
-using BenchmarkDotNet.Exporters.Plotting;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Loggers;
+using BenchmarkDotNet.Reports;
 
 /// <summary>
-/// Custom BenchmarkDotNet configuration for RecurringThings benchmarks.
+/// Custom BenchmarkDotNet configuration for RecurringThings read performance benchmarks.
+/// Outputs HTML, CSV, and Markdown reports. Use CSV for custom chart visualization.
 /// </summary>
 public class BenchmarkConfig : ManualConfig
 {
@@ -19,29 +18,32 @@ public class BenchmarkConfig : ManualConfig
     /// </summary>
     public BenchmarkConfig()
     {
-        // Job configuration - fewer iterations for database benchmarks
+        // Job configuration - optimized for database benchmarks
+        // Use fewer iterations since database operations have inherent variability
+        // WithId hides verbose job config from chart legends
         AddJob(Job.Default
+            .WithId("Bench")
             .WithWarmupCount(2)
             .WithIterationCount(5)
-            .WithInvocationCount(1)
-            .WithUnrollFactor(1));
+            .WithInvocationCount(16)
+            .WithUnrollFactor(16));
 
-        // Diagnosers
+        // Hide job column since we only have one job configuration
+        HideColumns(Column.Job);
+
+        // Diagnosers - memory tracking
         AddDiagnoser(MemoryDiagnoser.Default);
 
-        // Columns
-        AddColumnProvider(DefaultColumnProviders.Instance);
-
-        // Exporters for graphical output
-        AddExporter(HtmlExporter.Default);
-        AddExporter(CsvExporter.Default);
-        AddExporter(MarkdownExporter.GitHub);
-        AddExporter(new ScottPlotExporter(1920, 1080));
+        // Note: HTML, CSV, and Markdown exporters are included by default
+        // Adding them explicitly causes duplicate warnings
 
         // Logger
         AddLogger(ConsoleLogger.Default);
 
         // Output folder
         WithArtifactsPath("./BenchmarkResults");
+
+        // Summary style - show mean and error
+        WithSummaryStyle(SummaryStyle.Default.WithMaxParameterColumnWidth(50));
     }
 }

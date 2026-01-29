@@ -603,6 +603,7 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             Id = Guid.NewGuid(),
             Organization = recurrence.Organization,
             ResourcePath = recurrence.ResourcePath,
+            Type = recurrence.Type,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = originalTime,
             OriginalDuration = recurrence.Duration,
@@ -722,16 +723,17 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
 
         if (entry.EntryType == CalendarEntryType.Virtualized)
         {
+            await CreateExceptionForVirtualizedOccurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
+
             // Virtualized occurrence (from recurrence)
             if (entry.OverrideId.HasValue)
             {
-                // Has existing override - delete override and create exception
-                await DeleteVirtualizedOccurrenceWithOverrideAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                // No override - create exception to cancel the occurrence
-                await CreateExceptionForVirtualizedOccurrenceAsync(entry, transactionContext, cancellationToken).ConfigureAwait(false);
+                await _overrideRepository.DeleteAsync(
+                    entry.OverrideId!.Value,
+                    entry.Organization,
+                    entry.ResourcePath,
+                    transactionContext,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             return;
@@ -818,46 +820,7 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
             Id = Guid.NewGuid(),
             Organization = entry.Organization,
             ResourcePath = entry.ResourcePath,
-            RecurrenceId = recurrenceId,
-            OriginalTimeUtc = originalTime
-        };
-
-        await _exceptionRepository.CreateAsync(
-            exception,
-            transactionContext,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Deletes an override and creates an exception at the original time.
-    /// </summary>
-    private async Task DeleteVirtualizedOccurrenceWithOverrideAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext,
-        CancellationToken cancellationToken)
-    {
-        // Get the original time from Original.StartTime
-        var originalTime = entry.Original?.StartTime
-            ?? throw new InvalidOperationException(
-                "Cannot create exception: Original start time is missing.");
-
-        var recurrenceId = entry.RecurrenceId
-            ?? throw new InvalidOperationException("Cannot create exception: RecurrenceId is missing.");
-
-        // Delete the override
-        await _overrideRepository.DeleteAsync(
-            entry.OverrideId!.Value,
-            entry.Organization,
-            entry.ResourcePath,
-            transactionContext,
-            cancellationToken).ConfigureAwait(false);
-
-        // Create exception at the original time (not the overridden time)
-        var exception = new OccurrenceException
-        {
-            Id = Guid.NewGuid(),
-            Organization = entry.Organization,
-            ResourcePath = entry.ResourcePath,
+            Type = entry.Type,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = originalTime
         };

@@ -21,6 +21,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -53,6 +54,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -87,6 +89,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = null!,
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -109,6 +112,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -131,6 +135,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = new string('a', 101),
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -158,6 +163,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = null!,
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -180,6 +186,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -202,6 +209,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = new string('a', 101),
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -229,6 +237,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.Now, // Local time
             OriginalDuration = TimeSpan.FromHours(1)
@@ -269,6 +278,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -309,6 +319,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -332,6 +343,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1)
@@ -372,6 +384,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -395,6 +408,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -422,6 +436,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -449,6 +464,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -480,6 +496,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -503,6 +520,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -530,6 +548,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),
@@ -557,6 +576,7 @@ public class OccurrenceOverrideValidatorTests
             Id = Guid.NewGuid(),
             Organization = "org",
             ResourcePath = "path",
+            Type = "meeting",
             RecurrenceId = Guid.NewGuid(),
             OriginalTimeUtc = DateTime.UtcNow,
             OriginalDuration = TimeSpan.FromHours(1),

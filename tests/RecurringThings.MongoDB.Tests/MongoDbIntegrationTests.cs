@@ -435,13 +435,12 @@ public class MongoDbIntegrationTests : IAsyncLifetime
         var indexes = await collection.Indexes.ListAsync();
         var indexList = await indexes.ToListAsync();
 
-        // Assert - should have at least 5 indexes (_id + 4 custom)
-        Assert.True(indexList.Count >= 5);
+        // Assert - should have at least 4 indexes (_id + 3 custom)
+        Assert.True(indexList.Count >= 4);
 
         var indexNames = indexList.Select(i => i["name"].AsString).ToList();
-        Assert.Contains("idx_recurring_query", indexNames);
+        Assert.Contains("idx_time_range", indexNames);
         Assert.Contains("idx_original_time", indexNames);
-        Assert.Contains("idx_override_time_range", indexNames);
         Assert.Contains("idx_cascade_delete", indexNames);
     }
 
@@ -545,6 +544,7 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             Id = Guid.NewGuid(),
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 6, 15, 9, 0, 0, DateTimeKind.Utc),
             Extensions = null
@@ -558,6 +558,7 @@ public class MongoDbIntegrationTests : IAsyncLifetime
             Id = Guid.NewGuid(),
             Organization = TestOrganization,
             ResourcePath = TestResourcePath,
+            Type = TestType,
             RecurrenceId = recurrenceId,
             OriginalTimeUtc = new DateTime(2024, 6, 20, 9, 0, 0, DateTimeKind.Utc),
             OriginalDuration = TimeSpan.FromHours(1),
