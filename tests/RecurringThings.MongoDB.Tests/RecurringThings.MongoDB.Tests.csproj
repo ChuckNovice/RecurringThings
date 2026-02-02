@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RecurringThings.MongoDB\RecurringThings.MongoDB.csproj" />
+    <ProjectReference Include="..\RecurringThings.Tests\RecurringThings.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

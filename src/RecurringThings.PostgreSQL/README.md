@@ -18,12 +18,14 @@ using RecurringThings.Configuration;
 using RecurringThings.PostgreSQL.Configuration;
 
 services.AddRecurringThings(builder =>
-    builder.UsePostgreSql(options =>
+    builder.UsePostgreSql((provider, options) =>
     {
         options.ConnectionString = "Host=localhost;Database=myapp;Username=user;Password=pass";
         options.RunMigrationsOnStartup = true;  // Optional, default is true
     }));
 ```
+
+The `IServiceProvider` parameter allows you to resolve services registered before `AddRecurringThings`, such as `IOptions<T>` or `IConfiguration`.
 
 ## Migrations
 
@@ -32,7 +34,7 @@ Migrations run automatically on startup when `RunMigrationsOnStartup = true` (de
 To disable automatic migrations:
 
 ```csharp
-builder.UsePostgreSql(options =>
+builder.UsePostgreSql((provider, options) =>
 {
     options.ConnectionString = connectionString;
     options.RunMigrationsOnStartup = false;

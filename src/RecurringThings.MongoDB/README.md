@@ -16,7 +16,7 @@ using RecurringThings.Configuration;
 using RecurringThings.MongoDB.Configuration;
 
 services.AddRecurringThings(builder =>
-    builder.UseMongoDb(options =>
+    builder.UseMongoDb((provider, options) =>
     {
         options.ConnectionString = "mongodb://localhost:27017";
         options.DatabaseName = "myapp";                    // Required
@@ -26,7 +26,7 @@ services.AddRecurringThings(builder =>
 
 ## Sharding Considerations
 
-All queries issued by this provider filter by `Organization` first, making it an ideal shard key for MongoDB sharded clusters. Architects and DBAs should note this when designing their sharding strategy.
+All queries issued by this provider filter by `TenantId` first which has been chosen as the **hashed** index, making it an ideal shard key for MongoDB sharded clusters. Architects and DBAs should note this when designing their sharding strategy.
 
 ## Integration Tests
 

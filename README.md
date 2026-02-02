@@ -4,14 +4,12 @@
 [![NuGet](https://img.shields.io/nuget/v/RecurringThings.svg)](https://www.nuget.org/packages/RecurringThings/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-A .NET library for managing recurring events with on-demand virtualization. Instead of pre-materializing all future instances, RecurringThings generates occurrences dynamically during queries.
+Built on [iCal.Net](https://github.com/rianjs/ical.net) for RFC 5545 recurrence rules, RecurringThings adds a persistence layer with multi-tenant isolation and efficient date range queries.
 
 ## Features
 
-- **On-demand virtualization** - Generate recurring instances only when queried
-- **Multi-tenant isolation** - Built-in organization and resource path scoping
-- **Time zone correctness** - Proper DST handling using IANA time zones (NodaTime)
-- **RFC 5545 RRule support** - Full recurrence rules via Ical.Net
+- **Multi-tenant isolation** - TenantId and resource path scoping
+- **Efficient date range queries** - Query only the events you need
 - **Transaction support** - ACID operations via Transactional library
 
 ## Installation
@@ -32,75 +30,56 @@ Register RecurringThings in your `Program.cs` or `Startup.cs`:
 ```csharp
 // Using MongoDB
 services.AddRecurringThings(builder =>
-    builder.UseMongoDb(options =>
+    builder.UseMongoDb((provider, options) =>
     {
         options.ConnectionString = "mongodb://localhost:27017";
         options.DatabaseName = "myapp";
+        options.CollectionName = "mycalendar";
     }));
 
 // Or using PostgreSQL
 services.AddRecurringThings(builder =>
-    builder.UsePostgreSql(options =>
+    builder.UsePostgreSql((provider, options) =>
     {
         options.ConnectionString = "Host=localhost;Database=myapp;Username=user;Password=pass";
     }));
 ```
 
-Then inject `IRecurrenceEngine` wherever you need it:
+The `IServiceProvider` parameter allows you to resolve services registered before `AddRecurringThings`, such as `IOptions<T>` or `IConfiguration`.
+
+Then inject `IRecurrenceEngine` wherever you need it.
+
+## Usage
+
+**Create an event:**
 
 ```csharp
-public class CalendarService(IRecurrenceEngine engine)
+var evt = new CalendarEvent
 {
-    public async Task CreateMeetingAsync() { /* use engine */ }
-}
-```
-
-## Quick Example
-
-```csharp
-using Ical.Net.DataTypes;
-using RecurringThings;
-
-// Build a recurrence pattern using Ical.Net
-var pattern = new RecurrencePattern
-{
-    Frequency = FrequencyType.Weekly,
-    Until = new CalDateTime(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Local).ToUniversalTime())
+    Uid = "meeting-123",
+    Summary = "Weekly Standup",
+    Start = new CalDateTime(2025, 1, 6, 9, 0, 0, "America/New_York"),
+    Duration = TimeSpan.FromMinutes(30),
+    RecurrenceRules = [new RecurrencePattern(FrequencyType.Weekly)]
 };
-pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
 
-// Create a weekly recurring meeting
-await engine.CreateRecurrenceAsync(
-    organization: "tenant1",
-    resourcePath: "user123/calendar",
-    type: "meeting",
-    startTime: DateTime.Now,
-    duration: TimeSpan.FromHours(1),
-    rrule: pattern.ToString(),
-    timeZone: "America/New_York");
-
-// Query occurrences in a date range
-await foreach (var entry in engine.GetOccurrencesAsync("tenant1", "user123/calendar", start, end))
-{
-    Console.WriteLine($"{entry.Type}: {entry.StartTime} ({entry.EntryType})");
-}
-
-// Query recurrence patterns in a date range
-await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calendar", start, end))
-{
-    Console.WriteLine($"Recurrence: {entry.RecurrenceDetails?.RRule}");
-}
+await engine.CreateEventAsync(evt, "tenant-1", "user-abc", cancellationToken);
 ```
 
-## Domain Model
+**Query events:**
 
-| Entity | Description |
-|--------|-------------|
-| **Recurrence** | RRule pattern with time window and timezone |
-| **Occurrence** | Standalone non-repeating event |
-| **OccurrenceException** | Cancels a virtualized instance |
-| **OccurrenceOverride** | Modifies a virtualized instance |
-| **CalendarEntry** | Unified query result for all types |
+```csharp
+var filter = EventFilter.Create()
+    .ForUser("user-abc")
+    .From(DateTime.UtcNow)
+    .To(DateTime.UtcNow.AddMonths(1))
+    .Build();
+
+await foreach (var evt in engine.GetEventsAsync("tenant-1", filter).WithCancellation(cancellationToken))
+{
+    Console.WriteLine(evt.Summary);
+}
+```
 
 ## Supported Databases
 
@@ -108,26 +87,6 @@ await foreach (var entry in engine.GetRecurrencesAsync("tenant1", "user123/calen
 |----------|---------------|
 | MongoDB | [RecurringThings.MongoDB](src/RecurringThings.MongoDB/README.md) |
 | PostgreSQL | [RecurringThings.PostgreSQL](src/RecurringThings.PostgreSQL/README.md) |
-
-## Benchmarking
-
-Run read performance benchmarks locally against MongoDB and/or PostgreSQL:
-
-```bash
-# Set connection strings (PowerShell)
-$env:MONGODB_CONNECTION_STRING = "mongodb://localhost:27017"
-$env:POSTGRES_CONNECTION_STRING = "Host=localhost;Database=postgres;Username=postgres;Password=password"
-
-# Run benchmarks
-dotnet run -c Release --project benchmarks/RecurringThings.Benchmarks
-```
-
-The benchmark measures response time for concurrent read queries across different data volumes. Configure parameters in `BenchmarkOptions.cs`:
-- **DataVolumes**: Record counts to test (default: 1K, 10K, 100K, 1M)
-- **ConcurrentRequests**: Concurrency levels (default: 1, 5, 10, 25, 50, 100, 500, 1000)
-- **QueryStartUtc/QueryEndUtc**: Date range for queries
-
-Results are generated in `./BenchmarkResults/` including HTML reports, CSV data, and line charts.
 
 ## License
 

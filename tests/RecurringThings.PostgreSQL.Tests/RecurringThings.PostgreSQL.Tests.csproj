@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RecurringThings.PostgreSQL\RecurringThings.PostgreSQL.csproj" />
+    <ProjectReference Include="..\RecurringThings.Tests\RecurringThings.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

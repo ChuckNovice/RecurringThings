@@ -89,21 +89,6 @@ dotnet pack -c Release
 
 ## Architecture
 
-### Domain Model
-- **Recurrence** - Stores RRule pattern, time window, and timezone (no EndTime stored)
-- **Occurrence** - Standalone non-repeating events
-- **OccurrenceException** - Cancels a virtualized recurrence instance
-- **OccurrenceOverride** - Replaces a virtualized instance with customized values
-- **CalendarEntry** - Unified query result abstraction for all entry types
-
-### Virtualization Flow
-1. Query recurrences intersecting with date range (using StartTime and RecurrenceEndTime)
-2. Convert UTC to local time using IANA timezone
-3. Apply RRule via Ical.Net to generate instances
-4. Convert back to UTC
-5. Apply exceptions (discard) and overrides (replace)
-6. Merge with standalone occurrences
-
 ### Key Dependencies
 - **NodaTime** ([https://github.com/nodatime/nodatime](https://github.com/nodatime/nodatime)) - Timezone handling with IANA timezone support
 - **Ical.Net** ([https://github.com/rianjs/ical.net](https://github.com/rianjs/ical.net)) - RFC 5545 RRule parsing and evaluation
@@ -123,17 +108,13 @@ dotnet pack -c Release
 - RRule UNTIL must be in UTC (Z suffix required)
 - COUNT in RRule is not supported; use UNTIL only
 
-### Immutability Rules
-Recurrences: Only `Duration` and `Extensions` are mutable after creation.
-Standalone Occurrences: `StartTime`, `Duration`, and `Extensions` are mutable (EndTime recomputed).
-Overrides: `StartTime`, `Duration`, and `Extensions` are mutable (EndTime recomputed).
-
-### C# Style (from .editorconfig)
+### C# Style
 - File-scoped namespaces required
 - Using directives inside namespace
 - Use collection expressions `[]` instead of `Array.Empty` or `new[]`
 - Prefer primary constructors
 - Write XML documentation (`<summary>`, `<param>`, `<returns>`, `<exception>`) on all public classes, methods, and properties
+- Use `nameof()` instead of hardcoding type, property, or field names in strings (e.g., exception messages, logging)
 
 ### Serialization Conventions
 - Configure naming conventions globally (e.g., camelCase for JSON) rather than using attributes on each property
@@ -141,21 +122,20 @@ Overrides: `StartTime`, `Duration`, and `Extensions` are mutable (EndTime recomp
 - For JSON: Use `JsonSerializerOptions` with `PropertyNamingPolicy` instead of `[JsonPropertyName]` attributes
 
 ### MongoDB Sharding Key
-- Organization is the sharding key for MongoDB collections
-- **ALL MongoDB queries MUST use organization as the first filter** to trigger the sharding key
+- TenantId is the sharding key for MongoDB collections
+- **ALL MongoDB queries MUST use TenantId as the first filter** to trigger the sharding key
 - This ensures queries are routed to the correct shard and avoids scatter-gather operations
-- Repository methods that query by ID alone are NOT allowed - always include organization
+- Repository methods that query by ID alone are NOT allowed - always include TenantId
 - Every Find/FindAsync operation must have a CRITICAL comment documenting the sharding key usage
 
 ### Testing
 - Target: 90%+ coverage
-- Integration tests require `MONGODB_CONNECTION_STRING` and `POSTGRES_CONNECTION_STRING` environment variables
-- Use xUnit with built-in `Assert` class for assertions
-- Use Moq for mocking (see Key Dependencies for links)
-
-## Multi-Tenancy
-All entities require:
-- `Organization` - Tenant identifier (0-100 chars, empty allowed)
-- `ResourcePath` - Hierarchical scope like `user123/calendar` (0-100 chars, empty allowed)
-
-Exceptions and overrides must belong to the same Organization and ResourcePath as their parent recurrence.
+- Use xUnit `Assert` (not FluentAssertions) and Moq for mocking
+- **Naming**: Use Given-When-Then format (e.g., `GivenValidOccurrence_WhenCreated_ThenCanBeRetrievedById`)
+- **AAA pattern**: All tests must have explicit `// Arrange`, `// Act`, `// Assert` comments
+- **Tests are ground truth**: Tests define expected behavior from a user's perspective. If a test fails, it reveals a bug in the implementation - do NOT modify tests to work around implementation bugs. Failing tests are valuable as they document issues that need fixing. The only acceptable exception is genuine external limitations (e.g., database precision limits).
+- **Integration tests**:
+  - Require `MONGODB_CONNECTION_STRING` and `POSTGRES_CONNECTION_STRING` environment variables
+  - Always test through `IRecurrenceEngine` - never bypass to repositories or provider internals
+  - Write shared tests once in `IntegrationTestsBase.cs`, inherited by both provider test classes
+  - Each test must have XML documentation (`<summary>`) explaining what, why, and expected outcome

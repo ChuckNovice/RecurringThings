@@ -1,145 +1,72 @@
 namespace RecurringThings.PostgreSQL.Data;
 
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using RecurringThings.PostgreSQL.Data.Entities;
 
 /// <summary>
 /// EF Core DbContext for RecurringThings PostgreSQL persistence.
 /// </summary>
-internal sealed class RecurringThingsDbContext : DbContext
+/// <remarks>
+/// Initializes a new instance of the <see cref="RecurringThingsDbContext"/> class.
+/// </remarks>
+/// <param name="options">The DbContext options.</param>
+internal sealed class RecurringThingsDbContext(DbContextOptions<RecurringThingsDbContext> options) : DbContext(options)
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="RecurringThingsDbContext"/> class.
+    /// Gets or sets the events DbSet.
     /// </summary>
-    /// <param name="options">The DbContext options.</param>
-    public RecurringThingsDbContext(DbContextOptions<RecurringThingsDbContext> options)
-        : base(options)
-    {
-    }
+    public DbSet<EventEntity> Events { get; set; } = null!;
 
     /// <summary>
-    /// Gets or sets the recurrences DbSet.
+    /// Gets or sets the categories DbSet.
     /// </summary>
-    public DbSet<RecurrenceEntity> Recurrences => Set<RecurrenceEntity>();
+    public DbSet<CategoryEntity> Categories { get; set; } = null!;
 
     /// <summary>
-    /// Gets or sets the occurrences DbSet.
+    /// Gets or sets the properties DbSet.
     /// </summary>
-    public DbSet<OccurrenceEntity> Occurrences => Set<OccurrenceEntity>();
+    public DbSet<PropertyEntity> Properties { get; set; } = null!;
 
-    /// <summary>
-    /// Gets or sets the occurrence exceptions DbSet.
-    /// </summary>
-    public DbSet<OccurrenceExceptionEntity> OccurrenceExceptions => Set<OccurrenceExceptionEntity>();
-
-    /// <summary>
-    /// Gets or sets the occurrence overrides DbSet.
-    /// </summary>
-    public DbSet<OccurrenceOverrideEntity> OccurrenceOverrides => Set<OccurrenceOverrideEntity>();
-
-    /// <inheritdoc/>
+    /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        ConfigureRecurrenceEntity(modelBuilder);
-        ConfigureOccurrenceEntity(modelBuilder);
-        ConfigureOccurrenceExceptionEntity(modelBuilder);
-        ConfigureOccurrenceOverrideEntity(modelBuilder);
-    }
+        modelBuilder.Entity<EventEntity>(entity =>
+        {
+            entity.ToTable("events");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            entity.Property(e => e.Uid).IsRequired();
+            entity.HasIndex(e => e.Uid).IsUnique();
+            entity.Property(e => e.SerializedData).IsRequired();
 
-    private static void ConfigureRecurrenceEntity(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<RecurrenceEntity>();
+            entity.HasMany(e => e.Categories)
+                .WithOne(c => c.Event)
+                .HasForeignKey(c => c.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure JSONB for extensions
-        entity.Property(e => e.Extensions)
-            .HasColumnType("jsonb")
-            .HasConversion(
-                v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null));
+            entity.HasMany(e => e.Properties)
+                .WithOne(p => p.Event)
+                .HasForeignKey(p => p.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        // Index for range queries
-        entity.HasIndex(e => new { e.Organization, e.ResourcePath, e.Type, e.StartTime, e.RecurrenceEndTime })
-            .HasDatabaseName("idx_recurrences_query");
+        modelBuilder.Entity<CategoryEntity>(entity =>
+        {
+            entity.ToTable("event_categories");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            entity.Property(e => e.Value).IsRequired();
+        });
 
-        // Configure cascade delete for exceptions and overrides
-        entity.HasMany(e => e.Exceptions)
-            .WithOne(e => e.Recurrence)
-            .HasForeignKey(e => e.RecurrenceId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        entity.HasMany(e => e.Overrides)
-            .WithOne(e => e.Recurrence)
-            .HasForeignKey(e => e.RecurrenceId)
-            .OnDelete(DeleteBehavior.Cascade);
-    }
-
-    private static void ConfigureOccurrenceEntity(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<OccurrenceEntity>();
-
-        // Configure JSONB for extensions
-        entity.Property(e => e.Extensions)
-            .HasColumnType("jsonb")
-            .HasConversion(
-                v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null));
-
-        // Index for range queries
-        entity.HasIndex(e => new { e.Organization, e.ResourcePath, e.Type, e.StartTime, e.EndTime })
-            .HasDatabaseName("idx_occurrences_query");
-    }
-
-    private static void ConfigureOccurrenceExceptionEntity(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<OccurrenceExceptionEntity>();
-
-        // Configure JSONB for extensions
-        entity.Property(e => e.Extensions)
-            .HasColumnType("jsonb")
-            .HasConversion(
-                v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null));
-
-        // Index for finding exceptions by recurrence
-        entity.HasIndex(e => e.RecurrenceId)
-            .HasDatabaseName("idx_exceptions_recurrence");
-
-        // Index for range queries during virtualization
-        entity.HasIndex(e => new { e.Organization, e.ResourcePath, e.OriginalTimeUtc })
-            .HasDatabaseName("idx_exceptions_query");
-    }
-
-    private static void ConfigureOccurrenceOverrideEntity(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<OccurrenceOverrideEntity>();
-
-        // Configure JSONB for extensions
-        entity.Property(e => e.Extensions)
-            .HasColumnType("jsonb")
-            .HasConversion(
-                v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null));
-
-        // Configure JSONB for original extensions
-        entity.Property(e => e.OriginalExtensions)
-            .HasColumnType("jsonb")
-            .HasConversion(
-                v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null));
-
-        // Index for finding overrides by recurrence
-        entity.HasIndex(e => e.RecurrenceId)
-            .HasDatabaseName("idx_overrides_recurrence");
-
-        // Index for finding overrides by original time
-        entity.HasIndex(e => new { e.Organization, e.ResourcePath, e.OriginalTimeUtc })
-            .HasDatabaseName("idx_overrides_original");
-
-        // Index for finding overrides by actual time range
-        entity.HasIndex(e => new { e.Organization, e.ResourcePath, e.StartTime, e.EndTime })
-            .HasDatabaseName("idx_overrides_start");
+        modelBuilder.Entity<PropertyEntity>(entity =>
+        {
+            entity.ToTable("event_properties");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.Value).IsRequired();
+        });
     }
 }
