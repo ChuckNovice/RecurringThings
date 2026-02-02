@@ -58,7 +58,7 @@ public sealed class RecurringThingsBuilder
         if (MongoDbConfigured && PostgreSqlConfigured)
         {
             throw new InvalidOperationException(
-                "Cannot configure both MongoDB and PostgreSQL. Choose one persistence provider.");
+                "Cannot configure more than one persistence provider.");
         }
 
         if (!MongoDbConfigured && !PostgreSqlConfigured)

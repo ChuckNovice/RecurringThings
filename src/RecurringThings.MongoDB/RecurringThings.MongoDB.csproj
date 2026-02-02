@@ -1,40 +1,41 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="RecurringThings.MongoDB.Tests" />
-  </ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="RecurringThings.MongoDB.Tests" />
+	</ItemGroup>
 
-  <PropertyGroup>
-    <PackageId>RecurringThings.MongoDB</PackageId>
-    <Authors>Miguel Tremblay</Authors>
-    <Description>MongoDB persistence provider for RecurringThings library.</Description>
-    <RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>logo_green.png</PackageIcon>
-  </PropertyGroup>
+	<PropertyGroup>
+		<PackageId>RecurringThings.MongoDB</PackageId>
+		<Authors>Miguel Tremblay</Authors>
+		<Description>MongoDB persistence provider for RecurringThings library.</Description>
+		<RepositoryUrl>https://github.com/ChuckNovice/RecurringThings</RepositoryUrl>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageIcon>logo_green.png</PackageIcon>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\assets\logo_green.png" Pack="true" PackagePath="\" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+		<None Include="..\..\assets\logo_green.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\RecurringThings\RecurringThings.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\RecurringThings\RecurringThings.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
-    <PackageReference Include="MongoDB.Driver" Version="3.6.0" />
-    <PackageReference Include="Transactional.MongoDB" Version="10.0.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+		<PackageReference Include="MongoDB.Driver" Version="3.6.0" />
+		<PackageReference Include="Transactional.MongoDB" Version="10.0.0" />
+	</ItemGroup>
 
 </Project>

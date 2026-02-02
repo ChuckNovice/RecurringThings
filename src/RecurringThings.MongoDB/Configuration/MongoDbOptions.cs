@@ -1,5 +1,7 @@
 namespace RecurringThings.MongoDB.Configuration;
 
+using global::MongoDB.Driver;
+
 /// <summary>
 /// Configuration options for MongoDB persistence.
 /// </summary>
@@ -38,6 +40,20 @@ public sealed class MongoDbOptions
     public bool CreateIndexesOnStartup { get; set; } = true;
 
     /// <summary>
+    /// Optional callback to configure advanced <see cref="MongoClientSettings"/>.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// options.ConfigureClientSettings = settings =>
+    /// {
+    ///     settings.MaxConnectionPoolSize = 500;
+    ///     settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+    /// };
+    /// </code>
+    /// </example>
+    public Action<MongoClientSettings>? ConfigureClientSettings { get; set; }
+
+    /// <summary>
     /// Validates the options.
     /// </summary>
     /// <exception cref="ArgumentException">Thrown when required options are missing.</exception>
@@ -51,6 +67,11 @@ public sealed class MongoDbOptions
         if (string.IsNullOrWhiteSpace(DatabaseName))
         {
             throw new ArgumentException("MongoDB database name is required.", nameof(DatabaseName));
+        }
+
+        if (string.IsNullOrWhiteSpace(CollectionName))
+        {
+            throw new ArgumentException("MongoDB collection name is required.", nameof(CollectionName));
         }
     }
 }

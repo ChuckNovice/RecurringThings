@@ -9,7 +9,4 @@
     <Project Path="tests/RecurringThings.PostgreSQL.Tests/RecurringThings.PostgreSQL.Tests.csproj" />
     <Project Path="tests/RecurringThings.Tests/RecurringThings.Tests.csproj" />
   </Folder>
-    <Folder Name="/benchmarks/">
-    <Project Path="benchmarks/RecurringThings.Benchmarks/RecurringThings.Benchmarks.csproj" />
-  </Folder>
 </Solution>

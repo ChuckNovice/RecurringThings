@@ -1,5 +1,7 @@
 namespace RecurringThings.PostgreSQL.Configuration;
 
+using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
+
 /// <summary>
 /// Configuration options for PostgreSQL persistence.
 /// </summary>
@@ -21,6 +23,11 @@ public sealed class PostgreSqlOptions
     /// when the application starts. Defaults to true.
     /// </remarks>
     public bool RunMigrationsOnStartup { get; set; } = true;
+
+    /// <summary>
+    /// Optional callback to configure DbContext options for performance tuning, logging, etc.
+    /// </summary>
+    public Action<NpgsqlDbContextOptionsBuilder>? ConfigureNpgsql { get; set; }
 
     /// <summary>
     /// Validates the options.

@@ -1,10 +1,8 @@
 namespace RecurringThings.Configuration;
 
 using System;
-using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using RecurringThings.Engine;
-using RecurringThings.Validation.Validators;
 
 /// <summary>
 /// Extension methods for configuring RecurringThings services in an <see cref="IServiceCollection"/>.
@@ -58,20 +56,18 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
+        // Build an intermediate service provider to access services registered before AddRecurringThings
+        using var serviceProvider = services.BuildServiceProvider();
+
         var builder = new RecurringThingsBuilder(services);
         configure(builder);
 
         // Validate that exactly one provider has been configured
         builder.Validate();
 
-        // Register FluentValidation validators from the assembly (including internal validators)
-        services.AddValidatorsFromAssemblyContaining<OccurrenceExceptionValidator>(
-            ServiceLifetime.Scoped,
-            includeInternalTypes: true);
-
-        // Register the recurrence engine as scoped
+        // Register the recurrence engine as singleton
         // The repositories are registered by the provider-specific UseMongoDb/UsePostgreSql methods
-        services.AddScoped<IRecurrenceEngine, RecurrenceEngine>();
+        services.AddSingleton<IRecurrenceEngine, RecurrenceEngine>();
 
         return services;
     }

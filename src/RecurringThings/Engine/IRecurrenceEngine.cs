@@ -1,449 +1,68 @@
 namespace RecurringThings.Engine;
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using Ical.Net.CalendarComponents;
 using RecurringThings.Exceptions;
-using RecurringThings.Models;
-using RecurringThings.Options;
-using Transactional.Abstractions;
+using RecurringThings.Filters;
 
 /// <summary>
-/// Defines the contract for the recurrence virtualization engine.
+/// Defines the contract for the recurrence engine.
 /// </summary>
-/// <remarks>
-/// The recurrence engine is responsible for:
-/// <list type="bullet">
-/// <item>Querying recurrences and standalone occurrences from repositories</item>
-/// <item>Virtualizing occurrences from recurrence patterns using Ical.Net</item>
-/// <item>Applying occurrence exceptions (cancellations)</item>
-/// <item>Applying occurrence overrides (modifications)</item>
-/// <item>Returning unified <see cref="CalendarEntry"/> results</item>
-/// </list>
-/// </remarks>
 public interface IRecurrenceEngine
 {
     /// <summary>
-    /// Gets all occurrences (standalone and virtualized) that overlap with the specified date range.
+    /// Creates a new event from an iCalendar recurring component.
     /// </summary>
-    /// <param name="organization">The tenant identifier.</param>
-    /// <param name="resourcePath">The resource path scope.</param>
-    /// <param name="start">The start of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
-    /// <param name="end">The end of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
-    /// <param name="types">Optional type filter. Null returns all types.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>
-    /// An async enumerable of <see cref="CalendarEntry"/> objects representing:
-    /// <list type="bullet">
-    /// <item>Standalone occurrences in the range</item>
-    /// <item>Virtualized occurrences from recurrences in the range</item>
-    /// </list>
-    /// Times in returned entries are converted to local time based on each entry's TimeZone.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// Recurrence patterns themselves are not returned, only their virtualized occurrences.
-    /// Use <see cref="GetRecurrencesAsync"/> to retrieve recurrence patterns.
-    /// </para>
-    /// <para>
-    /// Excepted (cancelled) occurrences are excluded from results.
-    /// </para>
-    /// <para>
-    /// Overridden occurrences are returned with the override values and original values populated.
-    /// </para>
-    /// <para>
-    /// Local times are converted to UTC internally for querying. The conversion uses the system's
-    /// local timezone, so for consistent behavior across environments, prefer passing UTC times.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="start"/> or <paramref name="end"/> has DateTimeKind.Unspecified.
-    /// </exception>
-    IAsyncEnumerable<CalendarEntry> GetOccurrencesAsync(
-        string organization,
-        string resourcePath,
-        DateTime start,
-        DateTime end,
-        string[]? types = null,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets all recurrence patterns that overlap with the specified date range.
-    /// </summary>
-    /// <param name="organization">The tenant identifier.</param>
-    /// <param name="resourcePath">The resource path scope.</param>
-    /// <param name="start">The start of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
-    /// <param name="end">The end of the date range. Can be UTC or Local time (Unspecified is not allowed).</param>
-    /// <param name="types">Optional type filter. Null returns all types.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>
-    /// An async enumerable of <see cref="CalendarEntry"/> objects representing recurrence patterns.
-    /// Each entry has <see cref="CalendarEntry.EntryType"/> set to <see cref="CalendarEntryType.Recurrence"/>.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// This method returns only the recurrence patterns themselves, not their virtualized occurrences.
-    /// Use <see cref="GetOccurrencesAsync"/> to retrieve virtualized occurrences.
-    /// </para>
-    /// <para>
-    /// A recurrence overlaps with the date range if its recurrence time window
-    /// (StartTime to RecurrenceEndTime extracted from UNTIL) intersects with the query range.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="start"/> or <paramref name="end"/> has DateTimeKind.Unspecified.
-    /// </exception>
-    IAsyncEnumerable<CalendarEntry> GetRecurrencesAsync(
-        string organization,
-        string resourcePath,
-        DateTime start,
-        DateTime end,
-        string[]? types = null,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets a specific recurrence by ID.
-    /// </summary>
-    /// <param name="organization">The organization identifier (sharding key).</param>
-    /// <param name="recurrenceId">The recurrence ID.</param>
+    /// <param name="entry">The iCalendar recurring component (e.g., CalendarEvent, Todo).</param>
+    /// <param name="tenantId">Tenant identifier for multi-tenant isolation. Can be empty string.</param>
+    /// <param name="userId">Optional user identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The calendar entry representing the recurrence, or null if not found.</returns>
-    /// <remarks>
-    /// <para>
-    /// This method retrieves a single recurrence pattern by its ID without requiring a date range.
-    /// The returned <see cref="CalendarEntry"/> has <see cref="CalendarEntry.EntryType"/> set to
-    /// <see cref="CalendarEntryType.Recurrence"/>.
-    /// </para>
-    /// <para>
-    /// Unlike <see cref="GetRecurrencesAsync"/>, this method does not require resourcePath.
-    /// It queries by organization (sharding key) and ID only.
-    /// </para>
-    /// </remarks>
-    Task<CalendarEntry?> GetRecurrenceAsync(
-        string organization,
-        Guid recurrenceId,
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task CreateEventAsync(
+        IRecurringComponent entry,
+        string tenantId,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets a specific standalone occurrence by ID.
+    /// Updates an existing event from an iCalendar recurring component.
     /// </summary>
-    /// <param name="organization">The organization identifier (sharding key).</param>
-    /// <param name="occurrenceId">The occurrence ID.</param>
+    /// <param name="entry">The iCalendar recurring component (e.g., CalendarEvent, Todo).</param>
+    /// <param name="tenantId">Tenant identifier for multi-tenant isolation. Can be empty string.</param>
+    /// <param name="userId">Optional user identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The calendar entry representing the occurrence, or null if not found.</returns>
-    /// <remarks>
-    /// <para>
-    /// This method retrieves a single standalone occurrence by its ID without requiring a date range.
-    /// The returned <see cref="CalendarEntry"/> has <see cref="CalendarEntry.EntryType"/> set to
-    /// <see cref="CalendarEntryType.Standalone"/>.
-    /// </para>
-    /// <para>
-    /// Unlike <see cref="GetOccurrencesAsync"/>, this method does not require resourcePath.
-    /// It queries by organization (sharding key) and ID only.
-    /// </para>
-    /// <para>
-    /// This method only retrieves standalone occurrences. To retrieve virtualized occurrences
-    /// from recurrence patterns, use <see cref="GetOccurrencesAsync"/>.
-    /// </para>
-    /// </remarks>
-    Task<CalendarEntry?> GetOccurrenceAsync(
-        string organization,
-        Guid occurrenceId,
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="EventNotFoundException">Thrown when no matching event is found.</exception>
+    Task UpdateEventAsync(
+        IRecurringComponent entry,
+        string tenantId,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Creates a new recurrence pattern.
+    /// Deletes an existing event.
     /// </summary>
-    /// <param name="organization">The tenant identifier for multi-tenant isolation (0-100 chars).</param>
-    /// <param name="resourcePath">The hierarchical resource scope (0-100 chars).</param>
-    /// <param name="type">The user-defined type of this recurrence (1-100 chars).</param>
-    /// <param name="startTime">The timestamp when occurrences start. Can be UTC or Local (Unspecified not allowed).</param>
-    /// <param name="duration">The duration of each occurrence.</param>
-    /// <param name="rrule">The RFC 5545 recurrence rule. Must use UNTIL in UTC (Z suffix); COUNT is not supported.</param>
-    /// <param name="timeZone">The IANA time zone identifier (e.g., "America/New_York").</param>
-    /// <param name="extensions">Optional user-defined key-value metadata.</param>
-    /// <param name="options">
-    /// Optional options for recurrence creation. Controls behavior for monthly recurrences
-    /// where the specified day doesn't exist in all months (e.g., 31st in April).
-    /// </param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A <see cref="CalendarEntry"/> representing the created recurrence with <see cref="CalendarEntryType.Recurrence"/>.</returns>
-    /// <exception cref="ArgumentException">
-    /// Thrown when validation fails (invalid RRule, missing UNTIL, COUNT used, field length violations, etc.).
-    /// </exception>
-    /// <exception cref="MonthDayOutOfBoundsException">
-    /// Thrown when the RRule specifies a monthly recurrence with a day that doesn't exist in all months
-    /// within the recurrence range, and no <paramref name="options"/> are provided or
-    /// <see cref="CreateRecurrenceOptions.OutOfBoundsMonthBehavior"/> is <see cref="MonthDayOutOfBoundsStrategy.Throw"/>.
-    /// The exception contains the affected months, allowing the caller to prompt the user for a choice.
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// var pattern = new RecurrencePattern
-    /// {
-    ///     Frequency = FrequencyType.Daily,
-    ///     Until = new CalDateTime(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Local).ToUniversalTime())
-    /// };
-    /// pattern.ByDay.Add(new WeekDay(DayOfWeek.Monday));
-    ///
-    /// var entry = await engine.CreateRecurrenceAsync(
-    ///     organization: "tenant1",
-    ///     resourcePath: "user123/calendar",
-    ///     type: "appointment",
-    ///     startTime: DateTime.Now,
-    ///     duration: TimeSpan.FromHours(1),
-    ///     rrule: pattern.ToString(),
-    ///     timeZone: "America/New_York");
-    /// </code>
-    /// </example>
-    Task<CalendarEntry> CreateRecurrenceAsync(
-        string organization,
-        string resourcePath,
-        string type,
-        DateTime startTime,
-        TimeSpan duration,
-        string rrule,
-        string timeZone,
-        Dictionary<string, string>? extensions = null,
-        CreateRecurrenceOptions? options = null,
-        ITransactionContext? transactionContext = null,
+    /// <param name="uid">The unique identifier of the event.</param>
+    /// <param name="tenantId">Tenant identifier for multi-tenant isolation. Can be empty string.</param>
+    /// <param name="userId">Optional user identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="EventNotFoundException">Thrown when no matching event is found.</exception>
+    Task DeleteEventAsync(
+        string uid,
+        string tenantId,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Creates a new standalone occurrence.
+    /// Gets events matching the specified filter criteria as a streaming async enumerable.
     /// </summary>
-    /// <param name="organization">The tenant identifier for multi-tenant isolation (0-100 chars).</param>
-    /// <param name="resourcePath">The hierarchical resource scope (0-100 chars).</param>
-    /// <param name="type">The user-defined type of this occurrence (1-100 chars).</param>
-    /// <param name="startTime">The timestamp when this occurrence starts. Can be UTC or Local (Unspecified not allowed).</param>
-    /// <param name="duration">The duration of this occurrence.</param>
-    /// <param name="timeZone">The IANA time zone identifier (e.g., "America/New_York").</param>
-    /// <param name="extensions">Optional user-defined key-value metadata.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A <see cref="CalendarEntry"/> representing the created occurrence with <see cref="CalendarEntryType.Standalone"/>.</returns>
-    /// <remarks>
-    /// EndTime is automatically computed as StartTime + Duration.
-    /// </remarks>
-    /// <exception cref="ArgumentException">
-    /// Thrown when validation fails (field length violations, invalid time zone, etc.).
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// var entry = await engine.CreateOccurrenceAsync(
-    ///     organization: "tenant1",
-    ///     resourcePath: "user123/calendar",
-    ///     type: "meeting",
-    ///     startTime: DateTime.Now,
-    ///     duration: TimeSpan.FromMinutes(30),
-    ///     timeZone: "America/New_York");
-    /// </code>
-    /// </example>
-    Task<CalendarEntry> CreateOccurrenceAsync(
-        string organization,
-        string resourcePath,
-        string type,
-        DateTime startTime,
-        TimeSpan duration,
-        string timeZone,
-        Dictionary<string, string>? extensions = null,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates an occurrence (standalone or virtualized).
-    /// </summary>
-    /// <param name="entry">The calendar entry with updated values.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The updated <see cref="CalendarEntry"/>.</returns>
-    /// <remarks>
-    /// <para>
-    /// Recurrence patterns cannot be updated. To modify a recurrence, delete and recreate it.
-    /// </para>
-    /// <para>
-    /// Update behavior varies by entry type:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>
-    /// <term>Standalone Occurrence</term>
-    /// <description><c>StartTime</c>, <c>Duration</c>, and <c>Extensions</c> can be modified. EndTime is recomputed.</description>
-    /// </item>
-    /// <item>
-    /// <term>Virtualized Occurrence (no override)</term>
-    /// <description>Creates a new override with denormalized original values from the parent recurrence.</description>
-    /// </item>
-    /// <item>
-    /// <term>Virtualized Occurrence (with override)</term>
-    /// <description>Updates the existing override. EndTime is recomputed.</description>
-    /// </item>
-    /// </list>
-    /// </remarks>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="entry"/> is null.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when attempting to update a recurrence pattern, or when attempting to modify
-    /// immutable fields (Organization, ResourcePath, Type, TimeZone).
-    /// </exception>
-    /// <exception cref="KeyNotFoundException">
-    /// Thrown when the underlying entity (occurrence or override) is not found.
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// // Update a standalone occurrence's start time
-    /// entry.StartTime = entry.StartTime.AddHours(1);
-    /// var updated = await engine.UpdateOccurrenceAsync(entry);
-    ///
-    /// // Modify a virtualized occurrence (creates override)
-    /// entry.Duration = TimeSpan.FromMinutes(45);
-    /// var updated = await engine.UpdateOccurrenceAsync(entry);
-    /// </code>
-    /// </example>
-    Task<CalendarEntry> UpdateOccurrenceAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Deletes an occurrence (standalone or virtualized).
-    /// </summary>
-    /// <param name="entry">The calendar entry to delete.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task representing the asynchronous delete operation.</returns>
-    /// <remarks>
-    /// <para>
-    /// This method deletes individual occurrences. To delete an entire recurrence pattern
-    /// and all its data, use <see cref="DeleteRecurrenceAsync"/>.
-    /// </para>
-    /// <para>
-    /// Delete behavior varies by entry type:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>
-    /// <term>Standalone Occurrence</term>
-    /// <description>Deletes the occurrence directly.</description>
-    /// </item>
-    /// <item>
-    /// <term>Virtualized Occurrence (no override)</term>
-    /// <description>Creates an occurrence exception to cancel the virtualized occurrence.</description>
-    /// </item>
-    /// <item>
-    /// <term>Virtualized Occurrence (with override)</term>
-    /// <description>Deletes the override and creates an exception at the original time.</description>
-    /// </item>
-    /// </list>
-    /// </remarks>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="entry"/> is null.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the entry is a recurrence pattern. Use <see cref="DeleteRecurrenceAsync"/> instead.
-    /// </exception>
-    /// <exception cref="KeyNotFoundException">
-    /// Thrown when the underlying entity (occurrence or override) is not found.
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// // Cancel a single virtualized occurrence (creates exception)
-    /// await engine.DeleteOccurrenceAsync(virtualizedOccurrenceEntry);
-    ///
-    /// // Delete a standalone occurrence
-    /// await engine.DeleteOccurrenceAsync(standaloneEntry);
-    /// </code>
-    /// </example>
-    Task DeleteOccurrenceAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Deletes a recurrence pattern and all associated exceptions and overrides.
-    /// </summary>
-    /// <param name="organization">The tenant identifier.</param>
-    /// <param name="resourcePath">The resource path scope.</param>
-    /// <param name="recurrenceId">The ID of the recurrence to delete.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task representing the asynchronous delete operation.</returns>
-    /// <remarks>
-    /// <para>
-    /// This operation performs a cascade delete:
-    /// </para>
-    /// <list type="number">
-    /// <item>Deletes all occurrence exceptions for the recurrence</item>
-    /// <item>Deletes all occurrence overrides for the recurrence</item>
-    /// <item>Deletes the recurrence pattern itself</item>
-    /// </list>
-    /// <para>
-    /// The organization and resourcePath parameters ensure multi-tenant isolation.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="KeyNotFoundException">
-    /// Thrown when the recurrence is not found.
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// // Delete a recurrence and all its data
-    /// await engine.DeleteRecurrenceAsync("tenant1", "user123/calendar", recurrenceId);
-    /// </code>
-    /// </example>
-    Task DeleteRecurrenceAsync(
-        string organization,
-        string resourcePath,
-        Guid recurrenceId,
-        ITransactionContext? transactionContext = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Restores an overridden virtualized occurrence to its original state.
-    /// </summary>
-    /// <param name="entry">The calendar entry to restore.</param>
-    /// <param name="transactionContext">Optional transaction context.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task representing the asynchronous restore operation.</returns>
-    /// <remarks>
-    /// <para>
-    /// This operation is only valid for virtualized occurrences that have an override applied
-    /// (<see cref="CalendarEntry.IsOverridden"/> is true).
-    /// The override is deleted, and the occurrence will revert to its virtualized state
-    /// (computed from the parent recurrence) on the next query.
-    /// </para>
-    /// <para>
-    /// <b>Important:</b> Excepted (deleted) occurrences cannot be restored because they are not
-    /// returned by <see cref="GetOccurrencesAsync"/>. To restore an excepted occurrence, you must delete
-    /// the exception directly from the exception repository.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="entry"/> is null.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when attempting to restore:
-    /// <list type="bullet">
-    /// <item>A recurrence pattern</item>
-    /// <item>A standalone occurrence</item>
-    /// <item>A virtualized occurrence without an override (<see cref="CalendarEntry.IsOverridden"/> is false)</item>
-    /// </list>
-    /// </exception>
-    /// <exception cref="KeyNotFoundException">
-    /// Thrown when the override is not found.
-    /// </exception>
-    /// <example>
-    /// <code>
-    /// // Get an overridden occurrence
-    /// var entries = await engine.GetOccurrencesAsync(org, path, start, end, null).ToListAsync();
-    /// var overriddenEntry = entries.First(e => e.IsOverridden);
-    ///
-    /// // Restore it to original virtualized state
-    /// await engine.RestoreAsync(overriddenEntry);
-    ///
-    /// // Next query will return the occurrence with original recurrence values
-    /// </code>
-    /// </example>
-    Task RestoreAsync(
-        CalendarEntry entry,
-        ITransactionContext? transactionContext = null,
+    /// <param name="tenantId">Tenant identifier for multi-tenant isolation. Can be empty string.</param>
+    /// <param name="filter">The filter specifying query criteria. Use <see cref="EventFilter.Create"/> to build.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>An async stream of deserialized iCalendar recurring components.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when filter is null.</exception>
+    IAsyncEnumerable<IRecurringComponent> GetEventsAsync(
+        string tenantId,
+        EventFilter filter,
         CancellationToken cancellationToken = default);
 }
