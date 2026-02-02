@@ -71,11 +71,27 @@ public sealed class IndexManager
 
             var indexes = new List<CreateIndexModel<EventDocument>>
             {
+                // Primary index for user-specific queries (UserMode.Specific and UserMode.TenantWide)
+                // Supports: TenantId + UserId + date range filtering
                 new(indexKeysDefinition
                     .Ascending(d => d.TenantId)
                     .Ascending(d => d.UserId)
-                    .Ascending(d => d.StartDate)
-                    .Ascending(d => d.EndDate))
+                    .Ascending(d => d.EndDate),
+                    new CreateIndexOptions { Name = "ix_tenant_user_enddate" }),
+
+                // Tenant-wide index for admin/reporting queries (UserMode.All)
+                // Supports: TenantId + date range filtering without UserId
+                new(indexKeysDefinition
+                    .Ascending(d => d.TenantId)
+                    .Ascending(d => d.EndDate),
+                    new CreateIndexOptions { Name = "ix_tenant_enddate" }),
+
+                // Categories multikey index for category filtering
+                // Supports: TenantId + InCategories() filter
+                new(indexKeysDefinition
+                    .Ascending(d => d.TenantId)
+                    .Ascending(d => d.Categories),
+                    new CreateIndexOptions { Name = "ix_tenant_categories" })
             };
 
             collection.Indexes.CreateMany(indexes);
