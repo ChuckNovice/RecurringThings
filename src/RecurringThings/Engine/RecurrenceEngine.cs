@@ -214,8 +214,21 @@ internal sealed class RecurrenceEngine : IRecurrenceEngine
 
         // All rules are finite (have UNTIL or COUNT), compute the last occurrence
         var lastOccurrence = entry.GetOccurrences().LastOrDefault();
-        // Use AsUtc to properly handle timezone conversion
-        return lastOccurrence?.Period.EffectiveEndTime?.AsUtc;
+        if (lastOccurrence is null)
+            return null;
+
+        // Use EffectiveEndTime when available (CalendarEvent with End/Duration)
+        // For Todo, EffectiveEndTime is null because Due != End, so calculate manually
+        if (lastOccurrence.Period.EffectiveEndTime is not null)
+            return lastOccurrence.Period.EffectiveEndTime.AsUtc;
+
+        if (entry is Todo { Start: not null, Due: not null } todo)
+        {
+            var duration = todo.Due.AsUtc - todo.Start.AsUtc;
+            return lastOccurrence.Period.StartTime.AsUtc + duration;
+        }
+
+        return null;
     }
 
 }

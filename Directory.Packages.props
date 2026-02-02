@@ -1,0 +1,41 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core dependencies - use version RANGES for user-facing packages -->
+    <PackageVersion Include="FluentValidation" Version="[11.0.0,)" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="[11.0.0,)" />
+    <PackageVersion Include="Ical.Net" Version="[5.0.0,)" />
+    <!-- NodaTime minimum 3.2.2 required by Ical.Net -->
+    <PackageVersion Include="NodaTime" Version="[3.2.2,)" />
+
+    <!-- Microsoft.Extensions - minimum 9.0.12 required by Transactional packages -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="[9.0.0,)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[9.0.12,)" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="[9.0.0,)" />
+
+    <!-- Transactional - your own library, exact version is fine -->
+    <PackageVersion Include="Transactional.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Transactional.MongoDB" Version="10.0.0" />
+    <PackageVersion Include="Transactional.PostgreSQL" Version="10.0.0" />
+
+    <!-- MongoDB - minimum 3.6.0 required by Transactional.MongoDB -->
+    <PackageVersion Include="MongoDB.Driver" Version="[3.6.0,)" />
+
+    <!-- EF Core - use range for flexibility -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="[9.0.0,)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="[9.0.0,)" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="[9.0.0,)" />
+
+    <!-- Test packages - exact versions are fine (not exposed to consumers) -->
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
+  </ItemGroup>
+</Project>
